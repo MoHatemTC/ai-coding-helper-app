@@ -14,12 +14,29 @@ class HintLevel(str, Enum):
     CONCRETE_STEP = "concrete_step"
 
 
-class FindingSchema(BaseModel):
-    """Temporary representation of a code-review finding from Aly's node."""
+class Severity(str, Enum):
+    """Severity levels for a review finding."""
 
-    location: int = Field(description="Line number containing the code issue.")
-    severity: str = Field(description="Severity of the issue, for example INFO, WARNING, or CRITICAL.")
-    category: str = Field(description="Type of issue, for example correctness, style, or security.")
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class Category(str, Enum):
+    """Category classifications for a review finding."""
+
+    CORRECTNESS = "correctness"
+    SECURITY = "security"
+    PERFORMANCE = "performance"
+
+
+class Finding(BaseModel):
+    """Schema representing a single issue discovered during code review."""
+
+    line: int = Field(description="Line number containing the code issue.")
+    severity: Severity = Field(description="Severity of the issue, for example INFO, WARNING, or CRITICAL.")
+    category: Category = Field(description="Type of issue, for example correctness, style, or security.")
     message: str = Field(description="Plain-text explanation of what is wrong.")
     rationale: str = Field(description="Logical reason the issue should be addressed.")
 
