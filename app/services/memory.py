@@ -8,6 +8,7 @@ from app.core.cache import (
 )
 from app.core.config import settings
 from app.core.logging import logger
+from app.schemas.review import Finding
 
 
 class MemoryService:
@@ -98,6 +99,45 @@ class MemoryService:
             logger.info("long_term_memory_updated_successfully", user_id=user_id)
         except Exception as e:
             logger.exception("failed_to_update_long_term_memory", user_id=user_id, error=str(e))
+
+    async def store_finding(self, user_id: str, session_id: str, finding: Finding) -> None:
+        """Store a finding in long-term memory."""
+        if user_id is None or session_id is None:
+            return
+        try:
+            memory = await self._get_memory()
+            await memory.add(
+                f"[{finding.severity.value.upper()}] {finding.category.value} finding: {finding.message} — {finding.rationale}",
+                user_id=user_id,
+                metadata={
+                    "type": "code_finding",
+                    "category": finding.category.value,
+                    "severity": finding.severity.value,
+                    "message": finding.message,
+                    "rationale": finding.rationale,
+                },
+                run_id=session_id,
+                infer=False,
+            )
+            logger.info("store_finding_in_long_term_memory_successfully", user_id=user_id)
+        except Exception as e:
+            logger.exception("failed_to_store_finding_in_long_term_memory", user_id=user_id, error=str(e))
+
+    async def get_all_session_finding(self, user_id: str, session_id: str) -> list[dict]:
+        """Get all findings for a session."""
+        if user_id is None or session_id is None:
+            return []
+        try:
+            memory = await self._get_memory()
+            results = await memory.get_all(
+                user_id=user_id,
+                run_id=session_id,
+                filters={"metadata.type": "code_finding"},
+            )
+            return sorted(results["results"], key=lambda f: f["created_at"])
+        except Exception as e:
+            logger.error("failed_to_get_findings", error=str(e), user_id=user_id)
+            return []
 
 
 memory_service = MemoryService()
