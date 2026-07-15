@@ -9,6 +9,8 @@ from app.schemas.chat import (
     StreamResponse,
 )
 from app.schemas.graph import GraphState
+from app.schemas.review import Finding
+from app.schemas.skill_profile import SkillProfile
 
 __all__ = [
     "Token",
@@ -18,4 +20,6 @@ __all__ = [
     "Message",
     "StreamResponse",
     "GraphState",
+    "Finding",
+    "SkillProfile",
 ]
