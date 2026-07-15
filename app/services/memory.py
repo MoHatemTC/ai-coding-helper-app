@@ -9,6 +9,7 @@ from app.core.cache import (
 from app.core.config import settings
 from app.core.logging import logger
 from app.schemas.review import Finding
+from app.schemas.skill_profile import SkillProfile
 
 
 class MemoryService:
@@ -138,6 +139,58 @@ class MemoryService:
         except Exception as e:
             logger.error("failed_to_get_findings", error=str(e), user_id=user_id)
             return []
+
+    async def get_skill_profile(self, user_id: str | None) -> dict | None:
+        """Retrieve user's skill profile from memory."""
+        if user_id is None:
+            return None
+        try:
+            memory = await self._get_memory()
+            results = await memory.get_all(
+                user_id=str(user_id),
+                filters={"metadata.type": "skill_profile"},
+            )
+            # Find the skill profile entry (filtered by metadata)
+            return results["results"][0]
+        except Exception as e:
+            logger.error("failed_to_get_skill_profile", error=str(e), user_id=user_id)
+            return None
+
+    async def upsert_skill_profile(self, user_id: str, profile: SkillProfile) -> None:
+        """Create or update a user's skill profile memory.
+
+        If a skill_profile memory already exists for this user, it is overwritten
+        in place (same memory id). Otherwise a new one is created.
+        """
+        if user_id is None:
+            return
+        memory = await self._get_memory()
+
+        existing = await memory.get_all(
+            user_id=user_id,
+            filters={"metadata.type": "skill_profile"},
+        )
+        existing_results = existing["results"] if isinstance(existing, dict) else existing
+        content = self._profile_to_text(profile)
+
+        metadata = {
+            "type": "skill_profile",
+            "skill_level": profile.skill_level.value,
+            "weaknesses": [w.model_dump() for w in profile.weaknesses],
+            "all_searched_topics": profile.all_searched_topics,
+        }
+
+        if existing_results:
+            memory_id = existing_results[0]["id"]
+            await memory.delete(memory_id=memory_id)
+            await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
+        else:
+            await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
+
+    def _profile_to_text(self, profile: SkillProfile) -> str:
+        weakness_summary = "; ".join(f"{w.topic}: {w.description}" for w in profile.weaknesses) or "none identified"
+        topics = ", ".join(profile.all_searched_topics) or "none yet"
+        return f"Skill level: {profile.skill_level.value}. Weaknesses: {weakness_summary}. Topics explored: {topics}."
 
 
 memory_service = MemoryService()
