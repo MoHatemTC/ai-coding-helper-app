@@ -8,8 +8,11 @@ from app.core.cache import (
 )
 from app.core.config import settings
 from app.core.logging import logger
-from app.schemas.review import Finding
-from app.schemas.skill_profile import SkillProfile
+from app.schemas.review import Finding, Severity, Category
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class MemoryService:
@@ -32,15 +35,19 @@ class MemoryService:
                             "password": settings.POSTGRES_PASSWORD,
                             "host": settings.POSTGRES_HOST,
                             "port": settings.POSTGRES_PORT,
+                            "embedding_model_dims": 384,
                         },
                     },
                     "llm": {
-                        "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_MODEL},
+                        "provider": "groq",
+                        "config": {
+                            "model": "llama-3.1-8b-instant",
+                            "api_key": os.getenv("GROQ_API_KEY"),
+                        },
                     },
                     "embedder": {
-                        "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL},
+                        "provider": "huggingface",
+                        "config": {"model": "sentence-transformers/all-MiniLM-L6-v2"},
                     },
                 }
             )
@@ -124,7 +131,7 @@ class MemoryService:
         except Exception as e:
             logger.exception("failed_to_store_finding_in_long_term_memory", user_id=user_id, error=str(e))
 
-    async def get_all_session_finding(self, user_id: str, session_id: str) -> list[dict]:
+    async def get_all_session_finding(self, user_id: str, session_id: str):
         """Get all findings for a session."""
         if user_id is None or session_id is None:
             return []
@@ -133,9 +140,14 @@ class MemoryService:
             results = await memory.get_all(
                 user_id=user_id,
                 run_id=session_id,
-                filters={"metadata.type": "code_finding"},
+                filters={"type": "code_finding"},
             )
-            return sorted(results["results"], key=lambda f: f["created_at"])
+            results = results.get("results", [])
+            final_finding = []
+            for f in results:
+                print(f["metadata"])
+                final_finding.append(f["metadata"])
+            return final_finding
         except Exception as e:
             logger.error("failed_to_get_findings", error=str(e), user_id=user_id)
             return []
@@ -148,15 +160,15 @@ class MemoryService:
             memory = await self._get_memory()
             results = await memory.get_all(
                 user_id=str(user_id),
-                filters={"metadata.type": "skill_profile"},
+                filters={"type": "skill_profile"},
             )
             # Find the skill profile entry (filtered by metadata)
-            return results["results"][0]
+            return results.get("results", [])
         except Exception as e:
             logger.error("failed_to_get_skill_profile", error=str(e), user_id=user_id)
             return None
 
-    async def upsert_skill_profile(self, user_id: str, profile: SkillProfile) -> None:
+    async def upsert_skill_profile(self, user_id: str, profile: dict) -> None:
         """Create or update a user's skill profile memory.
 
         If a skill_profile memory already exists for this user, it is overwritten
@@ -166,31 +178,67 @@ class MemoryService:
             return
         memory = await self._get_memory()
 
-        existing = await memory.get_all(
+        existing_result = await memory.get_all(
             user_id=user_id,
-            filters={"metadata.type": "skill_profile"},
+            filters={"type": "skill_profile"},
         )
-        existing_results = existing["results"] if isinstance(existing, dict) else existing
+        existing_result = existing_result.get("results", [])
         content = self._profile_to_text(profile)
 
         metadata = {
             "type": "skill_profile",
-            "skill_level": profile.skill_level.value,
-            "weaknesses": [w.model_dump() for w in profile.weaknesses],
-            "all_searched_topics": profile.all_searched_topics,
+            "skill_level": profile["skill_level"].value,
+            "weaknesses": profile["weaknesses"],
+            "all_searched_topics": profile["all_searched_topics"],
         }
 
-        if existing_results:
-            memory_id = existing_results[0]["id"]
+        if existing_result not in (None, []):
+            print("Skill profile already exists. Updating...")
+            memory_id = existing_result[0]["id"]
             await memory.delete(memory_id=memory_id)
-            await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
-        else:
-            await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
+        await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
 
-    def _profile_to_text(self, profile: SkillProfile) -> str:
-        weakness_summary = "; ".join(f"{w.topic}: {w.description}" for w in profile.weaknesses) or "none identified"
-        topics = ", ".join(profile.all_searched_topics) or "none yet"
-        return f"Skill level: {profile.skill_level.value}. Weaknesses: {weakness_summary}. Topics explored: {topics}."
+    def _profile_to_text(self, profile: dict) -> str:
+        print("From profile to text...")
+        print(profile)
+        weakness_summary = (
+            "; ".join(f"{w['topic']}: {w['description']}" for w in profile["weaknesses"]) or "none identified"
+        )
+        topics = ", ".join(profile["all_searched_topics"]) or "none yet"
+        profile_text = (
+            f"Skill level: {profile['skill_level'].value}. Weaknesses: {weakness_summary}. Topics explored: {topics}."
+        )
+        print(profile_text)
+        return profile_text
+
+    def code_review(self) -> list[Finding]:
+        """Create dummy findings for code review. Returns a list of Finding objects with detailed issue information."""
+        return [
+            Finding(
+                file_path="main.py",
+                line=3,
+                severity=Severity.HIGH,
+                category=Category.SECURITY,
+                message="SQL injection vulnerability - unvalidated user input",
+                rationale="User input is directly concatenated into SQL query",
+            ),
+            Finding(
+                file_path="main.py",
+                line=7,
+                severity=Severity.MEDIUM,
+                category=Category.CORRECTNESS,
+                message="Off-by-one error in loop boundary",
+                rationale="Loop iterates to len(items) instead of len(items) - 1",
+            ),
+            Finding(
+                file_path="main.py",
+                line=12,
+                severity=Severity.LOW,
+                category=Category.STYLE,
+                message="Missing type hints on function parameters",
+                rationale="Type hints improve code readability",
+            ),
+        ]
 
 
 memory_service = MemoryService()
