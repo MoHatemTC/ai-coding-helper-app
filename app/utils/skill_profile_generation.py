@@ -25,6 +25,11 @@ prompt = ChatPromptTemplate.from_messages(
                 "findings show it's resolved, drop it.\n"
                 "- Merge all_searched_topics: keep existing topics and add any new "
                 "ones found in this batch, no duplicates."
+                "- Weakness topic and all_searched_topics are topics that"
+                "User has found issues in not the category of the finding."
+                "For example, If the finding is SQL injection, the topic is SQL."
+                "If the finding is missing type hints in certian language programming like Python,"
+                "then the topic is Python. The weakness is the fact that the user has found issues in SQL, Python, etc."
             ),
         ),
         ("human", ("Current skill profile:\n{current_profile}\n\nNew findings from this session:\n{findings}")),
@@ -35,7 +40,7 @@ prompt = ChatPromptTemplate.from_messages(
 async def generate_skill_profile(
     current_profile: SkillProfile | None,
     findings: list[dict],
-) -> SkillProfile:
+):
     """Use LLM to generate/update skill profile from findings."""
     current_profile_text = (
         current_profile.model_dump_json()
@@ -43,7 +48,7 @@ async def generate_skill_profile(
         else "No profile yet — this is the user's first analyzed session."
     )
 
-    llm = ChatGroq(model="FW-Kimi-K2.6", temperature=0)
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
     structured_llm = llm.with_structured_output(SkillProfile)
     chain = prompt | structured_llm
 
@@ -55,4 +60,4 @@ async def generate_skill_profile(
     )
     if not isinstance(result, SkillProfile):
         raise TypeError(f"Expected SkillProfile from structured output, got {type(result)}")
-    return result
+    return result.model_dump()
