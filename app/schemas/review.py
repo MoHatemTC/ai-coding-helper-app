@@ -1,6 +1,4 @@
 from enum import Enum
-from typing import List
-
 from pydantic import BaseModel, Field
 
 
@@ -25,7 +23,6 @@ class Category(str, Enum):
 class Finding(BaseModel):
     """Schema representing a single issue discovered during code review."""
 
-    file_path: str = Field(default="", description="The file path where the finding was discovered")
     line: int = Field(ge=1, description="1-based source code line")
     severity: Severity = Field(description="The severity level of the finding")
     category: Category = Field(description="The category of the finding")
