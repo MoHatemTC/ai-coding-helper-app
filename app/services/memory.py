@@ -8,7 +8,7 @@ from app.core.cache import (
 )
 from app.core.config import settings
 from app.core.logging import logger
-from app.schemas.review import Finding, Severity, Category
+from app.schemas.review import Finding
 import os
 from dotenv import load_dotenv
 
@@ -210,35 +210,6 @@ class MemoryService:
         )
         print(profile_text)
         return profile_text
-
-    def code_review(self) -> list[Finding]:
-        """Create dummy findings for code review. Returns a list of Finding objects with detailed issue information."""
-        return [
-            Finding(
-                file_path="main.py",
-                line=3,
-                severity=Severity.HIGH,
-                category=Category.SECURITY,
-                message="SQL injection vulnerability - unvalidated user input",
-                rationale="User input is directly concatenated into SQL query",
-            ),
-            Finding(
-                file_path="main.py",
-                line=7,
-                severity=Severity.MEDIUM,
-                category=Category.CORRECTNESS,
-                message="Off-by-one error in loop boundary",
-                rationale="Loop iterates to len(items) instead of len(items) - 1",
-            ),
-            Finding(
-                file_path="main.py",
-                line=12,
-                severity=Severity.LOW,
-                category=Category.STYLE,
-                message="Missing type hints on function parameters",
-                rationale="Type hints improve code readability",
-            ),
-        ]
 
 
 memory_service = MemoryService()
