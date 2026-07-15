@@ -161,3 +161,26 @@ async def test_hint_node_skips_invalid_findings(mock_mentor_response: MentorResp
     user_payload: str = await_args.args[1]
     assert invalid_message not in user_payload
     assert valid_message in user_payload
+
+
+@pytest.mark.asyncio
+async def test_hint_node_resets_on_problem_switch(mock_mentor_response: MentorResponse) -> None:
+    """Reset hint progression when the incoming problem changes."""
+    state: Dict[str, Any] = {
+        "problem_id": "problem_abc",
+        "hint_state": HintState(
+            current_level=HintLevel.CONCRETE_STEP,
+            history=[HintLevel.NUDGE, HintLevel.DIRECTION],
+            current_problem_id="problem_old_xyz",
+        ).model_dump(),
+    }
+
+    with patch(
+        "app.graph.nodes.hints.invoke_structured_llm_with_retry",
+        new=AsyncMock(return_value=mock_mentor_response),
+    ):
+        result: Dict[str, Any] = await generate_hint_node(state)
+
+    assert result["hint_state"]["current_level"] == HintLevel.DIRECTION.value
+    assert result["hint_state"]["history"] == [HintLevel.NUDGE.value]
+    assert result["hint_state"]["current_problem_id"] == "problem_abc"
