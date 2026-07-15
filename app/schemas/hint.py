@@ -2,7 +2,6 @@
 
 from enum import Enum
 from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -29,6 +28,7 @@ class Category(str, Enum):
     CORRECTNESS = "correctness"
     SECURITY = "security"
     PERFORMANCE = "performance"
+    STYLE = "style"
 
 
 class Finding(BaseModel):
@@ -57,9 +57,28 @@ class HintState(BaseModel):
     )
 
 
-class HintResponse(BaseModel):
-    """Structured response that the AI Mentor returns for a progressive hint."""
+class MentorResponse(BaseModel):
+    """Represents the structured response returned by the AI Mentor."""
 
-    level: HintLevel = Field(description="Progressive mentorship level for this hint.")
-    hint_text: str = Field(description="Markdown-formatted progressive hint text.")
-    socratic_question: str = Field(description="A single thought-provoking Socratic question for the user.")
+    understanding: str = Field(
+        description="A concise statement confirming the mentor's understanding of the user's intent, goal, or question."
+    )
+    review: Optional[str] = Field(
+        default=None,
+        description="Constructive feedback on the user's code or approach, highlighting strengths, weaknesses, potential bugs, edge cases, performance concerns, or security risks without providing the complete solution.",
+    )
+    explanation: str = Field(
+        description="An explanation of the reasoning behind the review or recommendation, helping the learner understand the underlying concepts, engineering principles, or trade-offs."
+    )
+    hint: Optional[str] = Field(
+        default=None,
+        description="A progressive hint that guides the learner toward discovering the solution independently without revealing the final answer.",
+    )
+    next_step: Optional[str] = Field(
+        default=None,
+        description="A concrete action or exercise that encourages the learner to continue solving the problem independently.",
+    )
+    additional_context: Optional[str] = Field(
+        default=None,
+        description="Requests additional information when the available context is insufficient to provide accurate guidance. This supports the mentor's principle of honest uncertainty.",
+    )
