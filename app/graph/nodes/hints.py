@@ -65,12 +65,25 @@ async def generate_hint_node(state: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         A dictionary containing the latest hint and updated hint state only.
     """
+    raw_problem_id: Any = state.get("problem_id")
+    incoming_problem_id: str | None = raw_problem_id if isinstance(raw_problem_id, str) else None
     raw_hint_state: Any = state.get("hint_state")
     try:
         hint_state: HintState = HintState.model_validate(raw_hint_state) if raw_hint_state is not None else HintState()
     except (TypeError, ValueError):
         logger.warning("invalid_hint_state_using_default")
         hint_state = HintState()
+
+    if incoming_problem_id != hint_state.current_problem_id:
+        hint_state = hint_state.model_copy(
+            update={
+                "current_problem_id": incoming_problem_id,
+                "current_level": HintLevel.NUDGE,
+                "history": [],
+            }
+        )
+    else:
+        hint_state = hint_state.model_copy(update={"current_problem_id": incoming_problem_id})
 
     raw_code: Any = state.get("code", "")
     raw_user_query: Any = state.get("user_query", "")
