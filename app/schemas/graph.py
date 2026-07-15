@@ -1,9 +1,8 @@
 """This file contains the graph schema for the application."""
 
-from typing import Annotated, List
+from typing import Annotated
 
 import operator
-#from langchain.messages import AnyMessage
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages 
 from pydantic import (
