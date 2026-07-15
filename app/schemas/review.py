@@ -31,10 +31,3 @@ class Finding(BaseModel):
     category: Category = Field(description="The category of the finding")
     message: str = Field(description="A description of the finding")
     rationale: str = Field(description="The justification for the finding")
-
-
-class CodeReviewResponse(BaseModel):
-    """Wrapper schema for structured LLM output containing multiple findings."""
-
-    findings: list[Finding] = Field(description="The list of code review findings")
-    summary: str = Field(default="", description="A brief summary of the review")
