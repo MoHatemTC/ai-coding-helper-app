@@ -7,7 +7,7 @@ from app.services.memory import MemoryService
 import re
 import inspect
 import textwrap
-from tests.services.memory.conftest import USER_A, USER_B
+from tests.conftest import USER_A, USER_B
 
 USER_A_MESSAGES = [
     {"role": "user", "content": "Help me fix this SQL query"},
