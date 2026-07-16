@@ -125,7 +125,6 @@ class MemoryService:
                     "severity": finding.severity.value,
                     "message": finding.message,
                     "rationale": finding.rationale,
-                    "file_path": finding.file_path,
                     "line": finding.line,
                 },
                 run_id=session_id,
@@ -154,7 +153,6 @@ class MemoryService:
                     severity=f["metadata"]["severity"],
                     message=f["metadata"]["message"],
                     rationale=f["metadata"]["rationale"],
-                    file_path=f["metadata"]["file_path"] if "file_path" in f["metadata"] else "",
                     line=f["metadata"]["line"] if "line" in f["metadata"] else 1,
                 )
                 final_finding.append(finding)
