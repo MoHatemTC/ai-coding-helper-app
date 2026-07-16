@@ -12,7 +12,6 @@ from app.schemas.graph import GraphState
 from app.schemas.review import Finding
 from app.schemas.skill_profile import SkillProfile
 
-from app.schemas.review import Finding
 
 __all__ = [
     "Token",

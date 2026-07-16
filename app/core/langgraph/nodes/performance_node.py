@@ -30,6 +30,8 @@ from app.services.llm import llm_service
 
 
 class Severity(str, Enum):
+    """Severity levels for a review finding."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -37,6 +39,8 @@ class Severity(str, Enum):
 
 
 class Category(str, Enum):
+    """Category classifications for a review finding."""
+
     CORRECTNESS = "correctness"
     SECURITY = "security"
     PERFORMANCE = "performance"
@@ -54,9 +58,13 @@ class Finding(BaseModel):
 
 
 class PerformanceReviewResult(BaseModel):
-    """Wrapper so `llm_service.call(..., response_format=...)` has a single
-    schema to target — `with_structured_output` needs one top-level model,
-    not a bare list."""
+    """Wrapper model for structured LLM output.
+
+    Used as the top-level response schema for
+    `llm_service.call(..., response_format=...)`, since
+    `with_structured_output` requires a single Pydantic model rather than
+    a bare list.
+    """
 
     findings: List[Finding] = Field(default_factory=list)
 
@@ -94,11 +102,13 @@ class StyleSubtype(str, Enum):
 
 
 class PerformanceFindingDraft(BaseModel):
-    """Internal, stricter shape the LLM actually targets. Adds a real,
-    Pydantic-validated subtype field on top of the shared Finding fields —
-    this is what makes PerformanceIssueType/StyleSubtype ACTIVE rather than
-    decorative: if the LLM returns a subtype not in either enum, this model
-    fails to validate instead of silently accepting free text."""
+    """Internal schema targeted by the LLM.
+
+    Extends the shared Finding schema with a Pydantic-validated subtype field.
+    This ensures the LLM can only return values defined in
+    PerformanceIssueType or StyleSubtype. Invalid subtype values will fail
+    validation instead of being accepted as arbitrary text.
+    """
 
     line: int = Field(..., ge=1)
     severity: Severity
@@ -110,16 +120,22 @@ class PerformanceFindingDraft(BaseModel):
 
 
 class PerformanceReviewDraft(BaseModel):
-    """What we actually request via `response_format=`. Converted to
-    PerformanceReviewResult (shared Finding shape) after validation."""
+    """Structured response schema requested from the LLM.
+
+    The validated response is converted into PerformanceReviewResult so the
+    rest of the review pipeline operates on the shared Finding schema.
+    """
 
     findings: List[PerformanceFindingDraft] = Field(default_factory=list)
 
 
 def _draft_to_finding(draft: PerformanceFindingDraft) -> Finding:
-    """Fold the validated subtype into `message` and drop down to the
-    shared Finding shape. The subtype only ever reaches this function
-    after Pydantic has already confirmed it's a real enum value."""
+    """Convert a validated draft into a shared Finding.
+
+    The subtype is incorporated into the message before converting to the
+    shared Finding schema. By the time this function is called, Pydantic has
+    already validated that the subtype is a valid enum value.
+    """
     tag = draft.issue_type or draft.style_subtype
     message = f"[{tag.value}] {draft.message}" if tag else draft.message
     return Finding(

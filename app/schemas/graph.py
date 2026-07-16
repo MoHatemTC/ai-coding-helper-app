@@ -20,9 +20,9 @@ class GraphState(BaseModel):
         default_factory=list, description="The messages in the conversation"
     )
     long_term_memory: str = Field(default="", description="The long term memory of the conversation")
-      
+
     skill_profile: str = Field(default="No Skill Profile for this user", description="The skill profile of the user")
-      
+
     findings: Annotated[list[Finding], operator.add] = Field(
         default_factory=list, description="The compiled code review findings across all evaluation stages"
     )
