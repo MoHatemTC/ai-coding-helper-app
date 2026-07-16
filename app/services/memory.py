@@ -8,6 +8,13 @@ from app.core.cache import (
 )
 from app.core.config import settings
 from app.core.logging import logger
+from app.schemas.review import Finding
+import os
+from dotenv import load_dotenv
+
+from app.schemas.skill_profile import SkillLevel, SkillProfile, Weakness
+
+load_dotenv()
 
 
 class MemoryService:
@@ -30,15 +37,19 @@ class MemoryService:
                             "password": settings.POSTGRES_PASSWORD,
                             "host": settings.POSTGRES_HOST,
                             "port": settings.POSTGRES_PORT,
+                            "embedding_model_dims": 384,
                         },
                     },
                     "llm": {
-                        "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_MODEL},
+                        "provider": "groq",
+                        "config": {
+                            "model": "llama-3.1-8b-instant",
+                            "api_key": os.getenv("GROQ_API_KEY"),
+                        },
                     },
                     "embedder": {
-                        "provider": "openai",
-                        "config": {"model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL},
+                        "provider": "huggingface",
+                        "config": {"model": "sentence-transformers/all-MiniLM-L6-v2"},
                     },
                 }
             )
@@ -98,6 +109,127 @@ class MemoryService:
             logger.info("long_term_memory_updated_successfully", user_id=user_id)
         except Exception as e:
             logger.exception("failed_to_update_long_term_memory", user_id=user_id, error=str(e))
+
+    async def store_finding(self, user_id: str, session_id: str, finding: Finding) -> None:
+        """Store a finding in long-term memory."""
+        if user_id is None or session_id is None:
+            return
+        try:
+            memory = await self._get_memory()
+            await memory.add(
+                f"[{finding.severity.value.upper()}] {finding.category.value} finding: {finding.message} — {finding.rationale}",
+                user_id=user_id,
+                metadata={
+                    "type": "code_finding",
+                    "category": finding.category.value,
+                    "severity": finding.severity.value,
+                    "message": finding.message,
+                    "rationale": finding.rationale,
+                    "line": finding.line,
+                },
+                run_id=session_id,
+                infer=False,
+            )
+            logger.info("store_finding_in_long_term_memory_successfully", user_id=user_id)
+        except Exception as e:
+            logger.exception("failed_to_store_finding_in_long_term_memory", user_id=user_id, error=str(e))
+
+    async def get_all_session_finding(self, user_id: str, session_id: str) -> list[Finding]:
+        """Get all findings for a session."""
+        if user_id is None or session_id is None:
+            return []
+        try:
+            memory = await self._get_memory()
+            results = await memory.get_all(
+                user_id=user_id,
+                run_id=session_id,
+                filters={"type": "code_finding"},
+            )
+            results = results.get("results", [])
+            final_finding = []
+            for f in results:
+                finding = Finding(
+                    category=f["metadata"]["category"],
+                    severity=f["metadata"]["severity"],
+                    message=f["metadata"]["message"],
+                    rationale=f["metadata"]["rationale"],
+                    line=f["metadata"]["line"] if "line" in f["metadata"] else 1,
+                )
+                final_finding.append(finding)
+            return final_finding
+        except Exception as e:
+            logger.error("failed_to_get_findings", error=str(e), user_id=user_id)
+            return []
+
+    async def get_skill_profile(self, user_id: str | None) -> SkillProfile | None:
+        """Retrieve user's skill profile from memory."""
+        if user_id is None:
+            return None
+        try:
+            memory = await self._get_memory()
+            results = await memory.get_all(
+                user_id=str(user_id),
+                filters={"type": "skill_profile"},
+            )
+            # Find the skill profile entry (filtered by metadata)
+            results = results.get("results", [])
+            if len(results) == 0:
+                return None
+            retrieved_profile = SkillProfile(
+                skill_level=SkillLevel(results[0]["metadata"]["skill_level"]),
+                weaknesses=[
+                    Weakness(topic=w["topic"], description=w["description"])
+                    for w in results[0]["metadata"]["weaknesses"]
+                ],
+                all_searched_topics=results[0]["metadata"]["all_searched_topics"],
+            )
+            return retrieved_profile
+        except Exception as e:
+            logger.error("failed_to_get_skill_profile", error=str(e), user_id=user_id)
+            return None
+
+    async def upsert_skill_profile(self, user_id: str, profile: SkillProfile) -> None:
+        """Create or update a user's skill profile memory.
+
+        If a skill_profile memory already exists for this user, it is overwritten
+        in place (same memory id). Otherwise a new one is created.
+        """
+        try:
+            if user_id is None:
+                return
+            memory = await self._get_memory()
+
+            existing_result = await memory.get_all(
+                user_id=user_id,
+                filters={"type": "skill_profile"},
+            )
+            existing_result = existing_result.get("results", [])
+            content = self._profile_to_text(profile)
+
+            metadata = {
+                "type": "skill_profile",
+                "skill_level": profile.skill_level.value,
+                "weaknesses": [{"topic": w.topic, "description": w.description} for w in profile.weaknesses],
+                "all_searched_topics": profile.all_searched_topics,
+            }
+            if existing_result not in (None, []):
+                memory_id = existing_result[0]["id"]
+                await memory.delete(memory_id=memory_id)
+            await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
+            logger.info("skill_profile_updated_successfully", user_id=user_id)
+        except Exception as e:
+            logger.error("failed_to_update_skill_profile", error=str(e), user_id=user_id)
+
+    def _profile_to_text(self, profile: SkillProfile | None) -> str:
+        """Convert skill profile to text."""
+        if profile is None:
+            return "There is no skill profile yet."
+        weakness_summary = "; ".join(f"{w.topic}: {w.description}" for w in profile.weaknesses) or "none identified"
+        topics = ", ".join(profile.all_searched_topics) or "none yet"
+        profile_text = (
+            f"Skill level: {profile.skill_level.value}. Weaknesses: {weakness_summary}. Topics explored: {topics}."
+        )
+        return profile_text
 
 
 memory_service = MemoryService()

@@ -40,6 +40,8 @@ dependencies = [
     "uvloop>=0.22.1; platform_system != 'Windows'",
     "asgi-correlation-id>=4.3.4",
     "alembic>=1.18.4",
+    "langchain-groq>=1.0.1",
+    "transformers>=5.14.0",
 ]
 
 [project.optional-dependencies]
@@ -63,12 +65,17 @@ dev = [
     "pyright>=1.1.390",
     "ruff>=0.11.4",
 ]
-test = ["httpx>=0.28.1", "pytest>=8.3.5"]
+test = [
+    "httpx>=0.28.1",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.3.0",
+]
 
 
 [tool.pytest.ini_options]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 python_files = ["test_*.py", "*_test.py", "tests.py"]
+pythonpath = ["."]
 
 [tool.black]
 line-length = 119
