@@ -1,4 +1,3 @@
-
 """Guardrail node for detecting unsafe or disallowed user intents."""
 
 from langchain_core.messages import AIMessage
@@ -19,14 +18,17 @@ def _classify_request(user_message: str) -> str:
         return "safety_policy_violation"
 
     # Simple heuristic redirection check
-    if any(word in message_lower for word in [
-        "write the code for",
-        "give me the full function",
-        "complete this",
-        "solve this leetcode",
-        "homework solution",
-        "do my homework",
-    ]):
+    if any(
+        word in message_lower
+        for word in [
+            "write the code for",
+            "give me the full function",
+            "complete this",
+            "solve this leetcode",
+            "homework solution",
+            "do my homework",
+        ]
+    ):
         return "writing_whole_function"
 
     return "code_review"
@@ -86,4 +88,3 @@ async def guardrail_node(state: GraphState) -> Command:
         return Command(update={"messages": [redirect_msg]}, goto=END)
 
     return Command(goto="chat")
-
