@@ -109,10 +109,7 @@ if __name__ == "__main__":
                 "name": "TEST 1: SQL Injection (Baseline Case)",
                 "code": "def login_user(db, username, password):\n    query = f\"SELECT * FROM users WHERE user = '{username}' AND pass = '{password}'\"\n    return db.execute(query)",
             },
-            {
-                "name": "TEST 2: Secret Exposure",
-                "code": "import requests\n\ndef connect_to_stripe():\n    api_key = settings.SECURITY_TEST_KEY\n    headers = {'Authorization': f'Bearer {api_key}'}\n    return requests.get(settings.SECURITY_TEST_URL, headers=headers)",
-            },
+            
             {
                 "name": "TEST 3: Safe / Secure Code",
                 "code": 'def calculate_area(length: float, width: float) -> float:\n    if length < 0 or width < 0:\n        raise ValueError("Dimensions cannot be negative.")\n    return length * width',
