@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 """Standalone baseline test using OpenRouter (free tier).
 
 Bypasses llm_service/LLMRegistry entirely — registry.py only knows OpenAI
@@ -5,6 +6,14 @@ model names, so reaching an OpenRouter model requires either this
 standalone script or a shared-infra change to registry.py (worth raising
 with whoever owns that file, not doing solo).
 
+=======
+"""Standalone baseline test using OpenRouter (free tier), bypassing
+llm_service/LLMRegistry entirely — same reasoning as before: registry.py
+only knows OpenAI model names, so reaching an OpenRouter model requires
+either this standalone script or a shared-infra change to registry.py
+(worth raising with whoever owns that file, not doing solo).
+ 
+>>>>>>> 1d5d96f14e4bd01d08ea3f7fa9ead4e02af74808
 Setup:
   1. Create a free account at https://openrouter.ai and generate an API
      key at https://openrouter.ai/keys
@@ -36,8 +45,13 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 load_dotenv()  # reads .env in the repo root and loads it into os.environ
+<<<<<<< HEAD
 
 from app.core.langgraph.nodes.performance_node import (  # noqa: E402
+=======
+ 
+from app.core.langgraph.nodes.performance_node import (
+>>>>>>> 1d5d96f14e4bd01d08ea3f7fa9ead4e02af74808
     SAMPLE_CODE,
     SYSTEM_PROMPT,
     PerformanceReviewResult,
@@ -92,4 +106,9 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     asyncio.run(main())
+=======
+    asyncio.run(main())
+ 
+>>>>>>> 1d5d96f14e4bd01d08ea3f7fa9ead4e02af74808
