@@ -4,14 +4,13 @@ from typing import Annotated
 
 import operator
 from langchain_core.messages import AnyMessage
-from langgraph.graph.message import add_messages 
+from langgraph.graph.message import add_messages
 from pydantic import (
     BaseModel,
     Field,
 )
 
 from app.schemas.review import Finding
-
 
 
 class GraphState(BaseModel):
@@ -25,3 +24,6 @@ class GraphState(BaseModel):
     findings: Annotated[list[Finding], operator.add] = Field(
         default_factory=list, description="The compiled code review findings across all evaluation stages"
     )
+
+    code: str | None = Field(default=None, description="The code snippet submitted for review")
+    language: str | None = Field(default=None, description="The programming language of the submitted code")

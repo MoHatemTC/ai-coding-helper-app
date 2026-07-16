@@ -54,4 +54,3 @@ def test_invalid_category():
             message="Invalid",
             rationale="Invalid category.",
         )
-        
