@@ -1,8 +1,12 @@
+"""Tests for the review tool."""
+
 from app.tools.review_tool import review_correctness
 from app.schemas.review import Category, Severity
 
 
 def test_detects_division_by_zero():
+    """The review tool should detect division by zero."""
+
     code = """x = 10
     y = x / 0
     """
@@ -19,6 +23,8 @@ def test_detects_division_by_zero():
 
 
 def test_correct_code_returns_no_findings():
+    """The review tool should return no findings for valid code."""
+    
     code = """
     x = 10
     y = x / 2

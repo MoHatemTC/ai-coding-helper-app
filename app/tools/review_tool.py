@@ -4,6 +4,7 @@ from app.schemas.review import Category, Finding, Severity
 
 
 def review_correctness(code: str) -> list[Finding]:
+    """Review source code for basic correctness issues."""
     findings = []
     lines = code.splitlines()
 
