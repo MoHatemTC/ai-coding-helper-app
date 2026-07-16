@@ -21,40 +21,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from app.schemas.review import Category, Finding, Severity
 from app.services.llm import llm_service
-
-# ---------------------------------------------------------------------------
-# Shared schema. Swap for the real `app.schemas` import once confirmed —
-# only this block should need to change.
-# ---------------------------------------------------------------------------
-
-
-class Severity(str, Enum):
-    """Severity levels for a review finding."""
-
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class Category(str, Enum):
-    """Category classifications for a review finding."""
-
-    CORRECTNESS = "correctness"
-    SECURITY = "security"
-    PERFORMANCE = "performance"
-    STYLE = "style"
-
-
-class Finding(BaseModel):
-    """Shared finding shape per PRD F1.1: location, severity, category, message, rationale."""
-
-    line: int = Field(..., ge=1, description="1-based line number the finding refers to")
-    severity: Severity
-    category: Category
-    message: str = Field(..., description="Short, specific description of the issue")
-    rationale: str = Field(..., description="Why this matters / the concept behind it")
 
 
 class PerformanceReviewResult(BaseModel):
