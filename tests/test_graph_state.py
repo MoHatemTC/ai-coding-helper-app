@@ -27,3 +27,19 @@ def test_graph_state_accepts_findings():
 
     assert len(state.findings) == 1
     assert state.findings[0].line == 12
+
+
+def test_graph_state_accepts_code_and_language():
+    """GraphState should store submitted code and language."""
+    state = GraphState(code="def add(a, b):\n    return a + b", language="python")
+
+    assert state.code == "def add(a, b):\n    return a + b"
+    assert state.language == "python"
+
+
+def test_graph_state_code_and_language_default_to_none():
+    """code/language should default to None when not provided."""
+    state = GraphState()
+
+    assert state.code is None
+    assert state.language is None
