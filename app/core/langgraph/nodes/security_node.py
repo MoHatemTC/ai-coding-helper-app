@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from app.core.config import settings
 
 from app.schemas.review import Severity, Category, Finding, CodeReviewResponse
 
@@ -110,7 +111,7 @@ if __name__ == "__main__":
             },
             {
                 "name": "TEST 2: Secret Exposure",
-                "code": "import requests\n\ndef connect_to_stripe():\n    api_key = 'REDACTED_STRIPE_KEY'\n    headers = {'Authorization': f'Bearer {api_key}'}\n    return requests.get('https://api.stripe.com/v1/charges', headers=headers)",
+                "code": "import requests\n\ndef connect_to_stripe():\n    api_key = settings.SECURITY_TEST_KEY\n    headers = {'Authorization': f'Bearer {api_key}'}\n    return requests.get(settings.SECURITY_TEST_URL, headers=headers)",
             },
             {
                 "name": "TEST 3: Safe / Secure Code",
