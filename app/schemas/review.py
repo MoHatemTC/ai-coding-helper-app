@@ -1,4 +1,4 @@
-"""Pydantic schemas for progressive AI mentorship hints."""
+"""Schemas used by the code review workflow."""
 
 from enum import Enum
 from typing import Optional, List
