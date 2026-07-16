@@ -40,6 +40,8 @@ dependencies = [
     "uvloop>=0.22.1; platform_system != 'Windows'",
     "asgi-correlation-id>=4.3.4",
     "alembic>=1.18.4",
+    "langchain-groq>=1.0.1",
+    "transformers>=5.14.0",
 ]
 
 [project.optional-dependencies]

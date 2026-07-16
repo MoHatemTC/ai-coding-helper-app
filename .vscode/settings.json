@@ -24,18 +24,7 @@
     },
     "python.analysis.autoImportCompletions": true,
     "python.analysis.indexing": true,
-    "python.languageServer": "None",
     "python.analysis.completeFunctionParens": true,
-    "editor.rulers": [
-        {
-            "column": 99,
-            "color": "#FFFFFF"
-        },
-        {
-            "column": 119,
-            "color": "#90EE90"
-        }
-    ],
     "python.testing.pytestArgs": [
         "tests"
     ],

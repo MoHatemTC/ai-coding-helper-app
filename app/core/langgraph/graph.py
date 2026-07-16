@@ -147,7 +147,9 @@ class LangGraphAgent:
 
         username = config.get("metadata", {}).get("username")
         thread_id = config.get("configurable", {}).get("thread_id")
-        SYSTEM_PROMPT = load_system_prompt(username=username, long_term_memory=state.long_term_memory)
+        SYSTEM_PROMPT = load_system_prompt(
+            username=username, long_term_memory=state.long_term_memory, skill_profile=state.skill_profile
+        )
 
         # Prepare messages with system prompt
         messages = prepare_messages(state.messages, SYSTEM_PROMPT)
@@ -309,9 +311,10 @@ class LangGraphAgent:
 
         try:
             # Run state check and memory search concurrently to save 200-500ms
-            state, relevant_memory = await asyncio.gather(
+            state, relevant_memory, skill_profile = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, messages[-1].content),
+                memory_service.get_skill_profile(user_id),
             )
 
             if state.next:
@@ -323,7 +326,11 @@ class LangGraphAgent:
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
                 response = await graph.ainvoke(
-                    input={"messages": dump_messages(messages), "long_term_memory": relevant_memory},
+                    input={
+                        "messages": dump_messages(messages),
+                        "long_term_memory": relevant_memory,
+                        "skill_profile": memory_service._profile_to_text(skill_profile),
+                    },
                     config=config,
                 )
 
@@ -380,9 +387,10 @@ class LangGraphAgent:
 
         try:
             # Run state check and memory search concurrently to save 200-500ms
-            state, relevant_memory = await asyncio.gather(
+            state, relevant_memory, skill_profile = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, messages[-1].content),
+                memory_service.get_skill_profile(user_id),
             )
 
             if state.next:
@@ -390,7 +398,11 @@ class LangGraphAgent:
                 graph_input = Command(resume=messages[-1].content)
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
-                graph_input = {"messages": dump_messages(messages), "long_term_memory": relevant_memory}
+                graph_input = {
+                    "messages": dump_messages(messages),
+                    "long_term_memory": relevant_memory,
+                    "skill_profile": memory_service._profile_to_text(skill_profile),
+                }
 
             async for token, _ in graph.astream(
                 graph_input,
