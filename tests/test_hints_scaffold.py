@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.graph.nodes.hints import generate_hint_node
-from app.schemas.hint import HintLevel, HintState, MentorResponse
+from app.core.langgraph.nodes.hints import generate_hint_node
+from app.schemas.review import HintLevel, HintState, MentorResponse
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ async def test_hint_node_escalates_nudge_to_direction(mock_mentor_response: Ment
     }
 
     with patch(
-        "app.graph.nodes.hints.invoke_structured_llm_with_retry",
+        "app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry",
         new=AsyncMock(return_value=mock_mentor_response),
     ):
         result: Dict[str, Any] = await generate_hint_node(state)
@@ -50,7 +50,7 @@ async def test_hint_node_escalates_direction_to_concrete_step(mock_mentor_respon
     }
 
     with patch(
-        "app.graph.nodes.hints.invoke_structured_llm_with_retry",
+        "app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry",
         new=AsyncMock(return_value=mock_mentor_response),
     ):
         result: Dict[str, Any] = await generate_hint_node(state)
@@ -70,7 +70,7 @@ async def test_hint_node_caps_at_concrete_step(mock_mentor_response: MentorRespo
     }
 
     with patch(
-        "app.graph.nodes.hints.invoke_structured_llm_with_retry",
+        "app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry",
         new=AsyncMock(return_value=mock_mentor_response),
     ):
         result: Dict[str, Any] = await generate_hint_node(state)
@@ -92,7 +92,7 @@ async def test_hint_node_fallback_on_failure() -> None:
     }
 
     with patch(
-        "app.graph.nodes.hints.invoke_structured_llm_with_retry",
+        "app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry",
         new=AsyncMock(side_effect=Exception("LLM timed out")),
     ):
         result: Dict[str, Any] = await generate_hint_node(state)
@@ -119,7 +119,7 @@ async def test_hint_node_parses_valid_findings(mock_mentor_response: MentorRespo
     }
     llm_mock: AsyncMock = AsyncMock(return_value=mock_mentor_response)
 
-    with patch("app.graph.nodes.hints.invoke_structured_llm_with_retry", new=llm_mock):
+    with patch("app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry", new=llm_mock):
         await generate_hint_node(state)
 
     await_args = llm_mock.await_args
@@ -153,7 +153,7 @@ async def test_hint_node_skips_invalid_findings(mock_mentor_response: MentorResp
     }
     llm_mock: AsyncMock = AsyncMock(return_value=mock_mentor_response)
 
-    with patch("app.graph.nodes.hints.invoke_structured_llm_with_retry", new=llm_mock):
+    with patch("app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry", new=llm_mock):
         await generate_hint_node(state)
 
     await_args = llm_mock.await_args
@@ -176,7 +176,7 @@ async def test_hint_node_resets_on_problem_switch(mock_mentor_response: MentorRe
     }
 
     with patch(
-        "app.graph.nodes.hints.invoke_structured_llm_with_retry",
+        "app.core.langgraph.nodes.hints.invoke_structured_llm_with_retry",
         new=AsyncMock(return_value=mock_mentor_response),
     ):
         result: Dict[str, Any] = await generate_hint_node(state)

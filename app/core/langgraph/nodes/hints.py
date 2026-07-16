@@ -12,7 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from app.core.config import settings
 from app.core.observability import langfuse_callback_handler
 from app.prompts.hints import HINT_SYSTEM_PROMPT
-from app.schemas.hint import Finding, HintLevel, HintState, MentorResponse
+from app.schemas.review import Finding, HintLevel, HintState, MentorResponse
 
 logger: Any = structlog.get_logger(__name__)
 
