@@ -93,15 +93,18 @@ def run_async(coro):
 
 
 def test_number_lines_prefixes_each_line():
+    """Verify that each source line is prefixed with its 1-based line number."""
     result = _number_lines("a\nb\nc")
     assert result == "1: a\n2: b\n3: c"
 
 
 def test_number_lines_handles_empty_string():
+    """Verify that numbering an empty string returns an empty string."""
     assert _number_lines("") == ""
 
 
 def test_finding_requires_line_to_be_at_least_1():
+    """Verify that Finding rejects line numbers smaller than one."""
     with pytest.raises(ValidationError):
         Finding(
             line=0,
@@ -120,8 +123,11 @@ def test_finding_requires_line_to_be_at_least_1():
 
 
 def test_invalid_issue_type_is_rejected():
-    """A performance subtype the LLM invents that isn't in the enum must
-    fail validation — this is what makes the enum active, not decorative."""
+    """Verify that invalid performance issue types are rejected.
+
+    A subtype not defined in the enum should fail Pydantic validation,
+    ensuring the enum actively constrains the LLM output.
+    """
     with pytest.raises(ValidationError):
         PerformanceFindingDraft(
             line=1,
@@ -134,6 +140,7 @@ def test_invalid_issue_type_is_rejected():
 
 
 def test_invalid_style_subtype_is_rejected():
+    """Verify that invalid style subtypes are rejected."""
     with pytest.raises(ValidationError):
         PerformanceFindingDraft(
             line=1,
@@ -146,6 +153,7 @@ def test_invalid_style_subtype_is_rejected():
 
 
 def test_valid_issue_type_is_accepted():
+    """Verify that valid performance issue types pass validation."""
     draft = PerformanceFindingDraft(
         line=1,
         severity=Severity.LOW,
@@ -158,6 +166,7 @@ def test_valid_issue_type_is_accepted():
 
 
 def test_valid_style_subtype_is_accepted():
+    """Verify that valid style subtypes pass Pydantic validation."""
     draft = PerformanceFindingDraft(
         line=1,
         severity=Severity.LOW,
@@ -177,6 +186,7 @@ def test_valid_style_subtype_is_accepted():
 
 
 def test_run_performance_review_folds_issue_type_into_message():
+    """Verify that the issue type is included in the resulting finding message."""
     fake_draft = PerformanceReviewDraft(
         findings=[
             PerformanceFindingDraft(
@@ -209,6 +219,7 @@ def test_run_performance_review_folds_issue_type_into_message():
 
 
 def test_run_performance_review_folds_style_subtype_into_message():
+    """Verify that the style subtype is included in the resulting finding message."""
     fake_draft = PerformanceReviewDraft(
         findings=[
             PerformanceFindingDraft(
@@ -233,6 +244,7 @@ def test_run_performance_review_folds_style_subtype_into_message():
 
 
 def test_run_performance_review_handles_no_findings():
+    """Verify that the review returns an empty result when no issues are found."""
     with patch(
         "app.core.langgraph.nodes.performance_node.llm_service.call",
         new=AsyncMock(return_value=PerformanceReviewDraft(findings=[])),
@@ -243,6 +255,7 @@ def test_run_performance_review_handles_no_findings():
 
 
 def test_run_performance_review_on_empty_code_does_not_crash():
+    """Verify that reviewing an empty source file completes without errors."""
     with patch(
         "app.core.langgraph.nodes.performance_node.llm_service.call",
         new=AsyncMock(return_value=PerformanceReviewDraft(findings=[])),
@@ -271,6 +284,7 @@ requires_api_key = pytest.mark.skipif(
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_flags_the_nested_loop():
+    """Verify that the real LLM identifies the nested-loop performance issue."""
     findings = run_async(run_performance_review(PERFORMANCE_ISSUE_CODE, language="python"))
 
     assert len(findings) >= 1, "expected at least one real finding for an O(n^2) snippet"
@@ -283,6 +297,7 @@ def test_real_llm_flags_the_nested_loop():
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_flags_code_duplication_as_style():
+    """Verify that the real LLM identifies code duplication as a style issue."""
     findings = run_async(run_performance_review(CODE_DUPLICATION_CODE, language="python"))
 
     assert len(findings) >= 1
@@ -294,6 +309,7 @@ def test_real_llm_flags_code_duplication_as_style():
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_flags_bad_naming_as_style():
+    """Verify that the real LLM identifies poor naming as a style issue."""
     findings = run_async(run_performance_review(NAMING_ISSUE_CODE, language="python"))
 
     assert len(findings) >= 1
@@ -305,6 +321,7 @@ def test_real_llm_flags_bad_naming_as_style():
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_returns_little_or_nothing_for_clean_code():
+    """Verify that the real LLM reports few or no findings for clean code."""
     findings = run_async(run_performance_review(CLEAN_CODE, language="python"))
 
     # Not a hard assertion of zero findings (LLMs can be opinionated), but

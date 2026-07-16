@@ -160,7 +160,7 @@ class LangGraphAgent:
             username=username,
             long_term_memory=state.long_term_memory,
             code_context=code_context,
-            skill_profile=state.skill_profile
+            skill_profile=state.skill_profile,
         )
 
         # Prepare messages with system prompt
