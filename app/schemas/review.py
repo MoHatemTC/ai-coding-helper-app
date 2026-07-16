@@ -1,3 +1,5 @@
+"""Schemas used by the code review workflow."""
+
 from enum import Enum
 from typing import Optional, List
 from pydantic import BaseModel, Field
