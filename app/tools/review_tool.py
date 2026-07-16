@@ -10,7 +10,6 @@ def review_correctness(code: str) -> list[Finding]:
 
     for i, line in enumerate(lines, start=1):
         if "/ 0" in line or "/0" in line:
-
             findings.append(
                 Finding(
                     line=i,
