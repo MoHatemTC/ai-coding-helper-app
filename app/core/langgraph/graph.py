@@ -147,7 +147,20 @@ class LangGraphAgent:
 
         username = config.get("metadata", {}).get("username")
         thread_id = config.get("configurable", {}).get("thread_id")
-        SYSTEM_PROMPT = load_system_prompt(username=username, long_term_memory=state.long_term_memory)
+        # func chat wasnt reading except state.messeges
+        code_context = ""
+        if state.code:
+            code_context = (
+                f"# Code submitted for review\n"
+                f"Language: {state.language or 'unknown'}\n"
+                f"```{state.language or ''}\n{state.code}\n```\n"
+            )
+
+        SYSTEM_PROMPT = load_system_prompt(
+            username=username,
+            long_term_memory=state.long_term_memory,
+            code_context=code_context,
+        )
 
         # Prepare messages with system prompt
         messages = prepare_messages(state.messages, SYSTEM_PROMPT)
@@ -281,6 +294,8 @@ class LangGraphAgent:
         session_id: str,
         user_id: Optional[str] = None,
         username: Optional[str] = None,
+        code: Optional[str] = None,
+        language: Optional[str] = None,
     ) -> list[Message]:
         """Get a response from the LLM.
 
@@ -289,6 +304,8 @@ class LangGraphAgent:
             session_id (str): The session ID for the conversation.
             user_id (Optional[str]): The user ID for the conversation.
             username (Optional[str]): The display name of the user.
+            code (Optional[str]): The code snippet submitted for review.
+            language (Optional[str]): The programming language of the submitted code.
 
         Returns:
             list[Message]: The response from the LLM.
@@ -323,7 +340,12 @@ class LangGraphAgent:
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
                 response = await graph.ainvoke(
-                    input={"messages": dump_messages(messages), "long_term_memory": relevant_memory},
+                    input={
+                        "messages": dump_messages(messages),
+                        "long_term_memory": relevant_memory,
+                        "code": code,
+                        "language": language,
+                    },
                     config=config,
                 )
 
@@ -352,6 +374,8 @@ class LangGraphAgent:
         session_id: str,
         user_id: Optional[str] = None,
         username: Optional[str] = None,
+        code: Optional[str] = None,
+        language: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """Get a stream response from the LLM.
 
@@ -360,6 +384,8 @@ class LangGraphAgent:
             session_id (str): The session ID for the conversation.
             user_id (Optional[str]): The user ID for the conversation.
             username (Optional[str]): The display name of the user.
+            code (Optional[str]): The code snippet submitted for review.
+            language (Optional[str]): The programming language of the submitted code.
 
         Yields:
             str: Tokens of the LLM response.
@@ -390,7 +416,12 @@ class LangGraphAgent:
                 graph_input = Command(resume=messages[-1].content)
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
-                graph_input = {"messages": dump_messages(messages), "long_term_memory": relevant_memory}
+                graph_input = {
+                    "messages": dump_messages(messages),
+                    "long_term_memory": relevant_memory,
+                    "code": code,
+                    "language": language,
+                }
 
             async for token, _ in graph.astream(
                 graph_input,
