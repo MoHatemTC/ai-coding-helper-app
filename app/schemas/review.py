@@ -26,11 +26,44 @@ class Category(str, Enum):
 class Finding(BaseModel):
     """Schema representing a single issue discovered during code review."""
 
-    line: int = Field(ge=1, description="1-based source code line")
-    severity: Severity = Field(description="The severity level of the finding")
-    category: Category = Field(description="The category of the finding")
-    message: str = Field(description="A description of the finding")
-    rationale: str = Field(description="The justification for the finding")
+    line: int = Field(
+        ge=1,
+        description=(
+            "The 1-based line number in the source code where the issue occurs. "
+            "Return the line that best identifies the root cause of the finding."
+        ),
+    )
+
+    severity: Severity = Field(
+        description=(
+            "The severity of the issue. "
+            "Use LOW for minor concerns, MEDIUM for issues that should be addressed, "
+            "HIGH for serious defects that can cause incorrect behavior, and "
+            "CRITICAL for issues likely to cause crashes, security vulnerabilities, "
+            "or data loss."
+        ),
+    )
+
+    category: Category = Field(
+        description=(
+            "The primary category of the issue. Choose exactly one of: correctness, security, performance, or style."
+        ),
+    )
+
+    message: str = Field(
+        description=(
+            "A short, user-facing summary of the issue in one sentence. "
+            "Clearly describe what is wrong without explaining why."
+        ),
+    )
+
+    rationale: str = Field(
+        description=(
+            "A concise technical explanation of why this issue is a problem, "
+            "including the potential impact on correctness, reliability, security, "
+            "or performance when appropriate."
+        ),
+    )
 
 
 class HintLevel(str, Enum):
