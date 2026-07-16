@@ -163,7 +163,7 @@ class Settings:
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
         self.JWT_ACCESS_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_DAYS", "30"))
-        
+
         # Logging Configuration
         self.LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
