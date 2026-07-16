@@ -1,5 +1,5 @@
 from langchain_core.messages import HumanMessage
-from app.graph.correctness import correctness_node
+from app.core.langgraph.nodes.correctness import correctness_node
 from app.schemas.graph import GraphState
 
 
