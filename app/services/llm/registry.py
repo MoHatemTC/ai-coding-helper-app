@@ -18,6 +18,7 @@ from app.core.logging import logger
 
 _TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
 _API_KEY = SecretStr(settings.OPENAI_API_KEY)
+_BASE_URL = settings.OPENAI_BASE_URL
 
 
 class LLMRegistry:
@@ -29,10 +30,21 @@ class LLMRegistry:
 
     LLMS: List[Dict[str, Any]] = [
         {
+            "name": "FW-Kimi-K2.6",
+            "llm": ChatOpenAI(
+                model="gpt-oss-120b",
+                api_key=_API_KEY,
+                base_url=_BASE_URL,
+                temperature=settings.DEFAULT_LLM_TEMPERATURE,
+                model_kwargs=_TOKEN_LIMIT,
+            ),
+        },
+        {
             "name": "gpt-5-mini",
             "llm": ChatOpenAI(
                 model="gpt-5-mini",
                 api_key=_API_KEY,
+                base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
                 reasoning={"effort": "low"},
             ),
@@ -42,6 +54,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5",
                 api_key=_API_KEY,
+                base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
                 reasoning={"effort": "medium"},
             ),
@@ -51,6 +64,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5.4-nano",
                 api_key=_API_KEY,
+                base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
                 reasoning={"effort": "low"},
             ),
@@ -60,6 +74,7 @@ class LLMRegistry:
             "llm": ChatOpenAI(
                 model="gpt-5",
                 api_key=_API_KEY,
+                base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
                 top_p=0.95 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.8,
                 presence_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,
