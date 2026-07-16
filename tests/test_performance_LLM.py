@@ -1,8 +1,9 @@
-"""Standalone baseline test using OpenRouter (free tier), bypassing
-llm_service/LLMRegistry entirely — same reasoning as before: registry.py
-only knows OpenAI model names, so reaching an OpenRouter model requires
-either this standalone script or a shared-infra change to registry.py
-(worth raising with whoever owns that file, not doing solo).
+"""Standalone baseline test using OpenRouter (free tier).
+
+Bypasses llm_service/LLMRegistry entirely — registry.py only knows OpenAI
+model names, so reaching an OpenRouter model requires either this
+standalone script or a shared-infra change to registry.py (worth raising
+with whoever owns that file, not doing solo).
 
 Setup:
   1. Create a free account at https://openrouter.ai and generate an API
@@ -17,6 +18,12 @@ Run with:
     uv run python run_baseline_with_openrouter.py
 
 (On PowerShell use $env:OPENROUTER_API_KEY="..." instead of `set`.)
+
+NOTE: this file lives in tests/ with a test_ prefix, which means pytest
+will try to collect it as a real test module even though it's a manual,
+standalone script. Recommend moving/renaming it to
+run_baseline_with_openrouter.py at the repo root instead — see the earlier
+discussion on this exact point.
 """
 
 from __future__ import annotations
@@ -30,7 +37,7 @@ from pydantic import SecretStr
 
 load_dotenv()  # reads .env in the repo root and loads it into os.environ
 
-from app.core.langgraph.nodes.performance_node import (
+from app.core.langgraph.nodes.performance_node import (  # noqa: E402
     SAMPLE_CODE,
     SYSTEM_PROMPT,
     PerformanceReviewResult,
@@ -45,6 +52,7 @@ MODEL_NAME = os.environ.get("OPENROUTER_MODEL", "mistralai/mistral-7b-instruct:f
 
 
 async def main() -> None:
+    """Run a baseline performance review call against OpenRouter and print the result."""
     llm = ChatOpenAI(
         model=MODEL_NAME,
         api_key=SecretStr(OPENROUTER_API_KEY),
