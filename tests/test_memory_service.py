@@ -5,7 +5,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 import pytest
 from app.services.memory import MemoryService
-from tests.services.memory.conftest import USER_A, SAMPLE_MESSAGES
+from tests.conftest import USER_A, SAMPLE_MESSAGES
 
 
 @pytest.mark.asyncio
