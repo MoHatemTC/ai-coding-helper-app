@@ -9,10 +9,11 @@ def correctness_node(state: GraphState):
     if not state.messages:
         return {"findings": []}
 
-    code = state.messages[-1].content
+    content = state.messages[-1].content
 
-    findings = review_correctness(code)
+    if not isinstance(content, str):
+        return {"findings": []}
 
-    return {
-        "findings": findings,
-    }
+    findings = review_correctness(content)
+
+    return {"findings": findings}

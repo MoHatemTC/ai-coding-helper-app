@@ -1,18 +1,22 @@
-"""LLM-powered code review tool."""
+"""Basic rule-based correctness review tool."""
 
+import re
 from app.schemas.review import Category, Finding, Severity
+
+DIV_ZERO_PATTERN = re.compile(r"/\s*0\b")
 
 
 def review_correctness(code: str) -> list[Finding]:
     """Review source code for basic correctness issues."""
-    findings = []
-    lines = code.splitlines()
+    findings: list[Finding] = []
 
-    for i, line in enumerate(lines, start=1):
-        if "/ 0" in line or "/0" in line:
+    for line_number, line in enumerate(code.splitlines(), start=1):
+        code_line = line.split("#", 1)[0]
+
+        if DIV_ZERO_PATTERN.search(code_line):
             findings.append(
                 Finding(
-                    line=i,
+                    line=line_number,
                     severity=Severity.CRITICAL,
                     category=Category.CORRECTNESS,
                     message="Possible division by zero.",
