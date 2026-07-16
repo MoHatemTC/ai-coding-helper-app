@@ -16,3 +16,5 @@ class GraphState(BaseModel):
         default_factory=list, description="The messages in the conversation"
     )
     long_term_memory: str = Field(default="", description="The long term memory of the conversation")
+    code: str | None = Field(default=None, description="The code snippet submitted for review")
+    language: str | None = Field(default=None, description="The programming language of the submitted code")
