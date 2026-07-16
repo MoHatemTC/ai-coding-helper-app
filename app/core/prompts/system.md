@@ -14,5 +14,6 @@ Help the user with their questions.
 # User Skill Profile
 {skill_profile}
 
+{code_context}
 # Current date and time
 {current_date_and_time}
