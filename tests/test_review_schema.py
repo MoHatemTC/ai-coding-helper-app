@@ -7,7 +7,6 @@ from app.schemas.review import Category, Finding, Severity
 
 def test_valid_finding():
     """A valid finding should be created successfully."""
-
     finding = Finding(
         line=10,
         severity=Severity.HIGH,
@@ -23,7 +22,6 @@ def test_valid_finding():
 
 def test_invalid_line():
     """A line number less than one should raise a validation error."""
-
     with pytest.raises(ValidationError):
         Finding(
             line=0,
@@ -36,7 +34,6 @@ def test_invalid_line():
 
 def test_invalid_severity():
     """An invalid severity should raise a validation error."""
-
     with pytest.raises(ValidationError):
         Finding(
             line=5,
@@ -49,7 +46,6 @@ def test_invalid_severity():
 
 def test_invalid_category():
     """An invalid category should raise a validation error."""
-
     with pytest.raises(ValidationError):
         Finding(
             line=5,

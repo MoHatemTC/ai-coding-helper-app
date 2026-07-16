@@ -6,7 +6,6 @@ from app.schemas.review import Category, Finding, Severity
 
 def test_graph_state_defaults():
     """GraphState should initialize with default values."""
-
     state = GraphState()
 
     assert state.messages == []
@@ -16,7 +15,6 @@ def test_graph_state_defaults():
 
 def test_graph_state_accepts_findings():
     """GraphState should store review findings."""
-    
     finding = Finding(
         line=12,
         severity=Severity.MEDIUM,

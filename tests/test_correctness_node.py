@@ -7,7 +7,6 @@ from app.schemas.graph import GraphState
 
 def test_correctness_node_returns_findings():
     """The node should detect correctness issues."""
-
     state = GraphState(
         messages=[
             HumanMessage(
@@ -27,7 +26,6 @@ y = x / 0
 
 def test_correctness_node_returns_empty():
     """The node should return no findings for correct code."""
-
     state = GraphState(
         messages=[
             HumanMessage(

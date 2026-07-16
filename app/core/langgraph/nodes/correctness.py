@@ -6,7 +6,6 @@ from app.tools.review_tool import review_correctness
 
 def correctness_node(state: GraphState):
     """Run the correctness review and return structured findings."""
-    
     if not state.messages:
         return {"findings": []}
 
