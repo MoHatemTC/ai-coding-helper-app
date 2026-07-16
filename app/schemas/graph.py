@@ -24,6 +24,6 @@ class GraphState(BaseModel):
     findings: Annotated[list[Finding], operator.add] = Field(
         default_factory=list, description="The compiled code review findings across all evaluation stages"
     )
-    
+
     code: str | None = Field(default=None, description="The code snippet submitted for review")
     language: str | None = Field(default=None, description="The programming language of the submitted code")
