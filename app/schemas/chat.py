@@ -26,7 +26,7 @@ class Message(BaseModel):
     model_config = {"extra": "ignore"}
 
     role: Literal["user", "assistant", "system"] = Field(..., description="The role of the message sender")
-    content: str = Field(..., description="The content of the message", min_length=1, max_length=3000)
+    content: str = Field(..., description="The content of the message", min_length=1, max_length=8000)
 
     @field_validator("content")
     @classmethod
@@ -58,6 +58,8 @@ class ChatRequest(BaseModel):
 
     Attributes:
         messages: List of messages in the conversation.
+        code: Optional code snippet submitted for review.
+        language: Optional programming language of the submitted code.
     """
 
     messages: List[Message] = Field(
@@ -65,6 +67,36 @@ class ChatRequest(BaseModel):
         description="List of messages in the conversation",
         min_length=1,
     )
+    code: str | None = Field(
+        default=None,
+        description="Optional code snippet submitted for review",
+        max_length=20000,
+    )
+    language: str | None = Field(
+        default=None,
+        description="Optional programming language of the submitted code",
+        max_length=50,
+    )
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, v: str | None) -> str | None:
+        """Validate the submitted code snippet.
+
+        Args:
+            v: The code to validate
+
+        Returns:
+            str | None: The validated code
+
+        Raises:
+            ValueError: If the code contains null bytes
+        """
+        if v is None:
+            return v
+        if "\0" in v:
+            raise ValueError("Code contains null bytes")
+        return v
 
 
 class ChatResponse(BaseResponse):
