@@ -1,29 +1,18 @@
-"""Standalone baseline test using OpenRouter (free tier).
+"""Standalone OpenRouter baseline test.
 
-Bypasses llm_service/LLMRegistry entirely — registry.py only knows OpenAI
-model names, so reaching an OpenRouter model requires either this
-standalone script or a shared-infra change to registry.py (worth raising
-with whoever owns that file, not doing solo).
+This script bypasses ``llm_service`` and ``LLMRegistry`` because the
+registry currently supports only OpenAI model names.
 
 Setup:
-  1. Create a free account at https://openrouter.ai and generate an API
-     key at https://openrouter.ai/keys
-  2. Browse https://openrouter.ai/models?max_price=0 for current free
-     models (the exact list changes over time — pick one from there and
-     set OPENROUTER_MODEL below to match).
+    1. Create a free OpenRouter account.
+    2. Generate an API key.
+    3. Set ``OPENROUTER_API_KEY``.
+    4. Set ``OPENROUTER_MODEL``.
 
-Run with:
-    set OPENROUTER_API_KEY=sk-or-v1-...
-    set OPENROUTER_MODEL=mistralai/mistral-7b-instruct:free
+Run:
     uv run python run_baseline_with_openrouter.py
 
-(On PowerShell use $env:OPENROUTER_API_KEY="..." instead of `set`.)
-
-NOTE: this file lives in tests/ with a test_ prefix, which means pytest
-will try to collect it as a real test module even though it's a manual,
-standalone script. Recommend moving/renaming it to
-run_baseline_with_openrouter.py at the repo root instead — see the earlier
-discussion on this exact point.
+On PowerShell, use ``$env:OPENROUTER_API_KEY`` instead of ``set``.
 """
 
 from __future__ import annotations
@@ -35,7 +24,6 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-load_dotenv()  # reads .env in the repo root and loads it into os.environ
 
 from app.core.langgraph.nodes.performance_node import (  # noqa: E402
     SAMPLE_CODE,
@@ -43,6 +31,8 @@ from app.core.langgraph.nodes.performance_node import (  # noqa: E402
     PerformanceReviewResult,
     _number_lines,
 )
+
+load_dotenv()  # reads .env in the repo root and loads it into os.environ
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_API_KEY = os.environ["OPENROUTER_API_KEY"]
@@ -52,7 +42,7 @@ MODEL_NAME = os.environ.get("OPENROUTER_MODEL", "mistralai/mistral-7b-instruct:f
 
 
 async def main() -> None:
-    """Run a baseline performance review call against OpenRouter and print the result."""
+    """Run the baseline performance review against an OpenRouter model."""
     llm = ChatOpenAI(
         model=MODEL_NAME,
         api_key=SecretStr(OPENROUTER_API_KEY),
