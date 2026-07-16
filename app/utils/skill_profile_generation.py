@@ -3,6 +3,7 @@
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
+from app.schemas.review import Finding
 from app.schemas.skill_profile import SkillProfile
 
 load_dotenv()
@@ -39,8 +40,8 @@ prompt = ChatPromptTemplate.from_messages(
 
 async def generate_skill_profile(
     current_profile: SkillProfile | None,
-    findings: list[dict],
-):
+    findings: list[Finding],
+) -> SkillProfile:
     """Use LLM to generate/update skill profile from findings."""
     current_profile_text = (
         current_profile.model_dump_json()
@@ -60,4 +61,10 @@ async def generate_skill_profile(
     )
     if not isinstance(result, SkillProfile):
         raise TypeError(f"Expected SkillProfile from structured output, got {type(result)}")
-    return result.model_dump()
+    new_skill_profile = SkillProfile(
+        skill_level=result.skill_level,
+        weaknesses=result.weaknesses,
+        all_searched_topics=result.all_searched_topics,
+    )
+
+    return new_skill_profile

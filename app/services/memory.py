@@ -12,6 +12,8 @@ from app.schemas.review import Finding
 import os
 from dotenv import load_dotenv
 
+from app.schemas.skill_profile import SkillLevel, SkillProfile, Weakness
+
 load_dotenv()
 
 
@@ -123,6 +125,8 @@ class MemoryService:
                     "severity": finding.severity.value,
                     "message": finding.message,
                     "rationale": finding.rationale,
+                    "file_path": finding.file_path,
+                    "line": finding.line,
                 },
                 run_id=session_id,
                 infer=False,
@@ -131,7 +135,7 @@ class MemoryService:
         except Exception as e:
             logger.exception("failed_to_store_finding_in_long_term_memory", user_id=user_id, error=str(e))
 
-    async def get_all_session_finding(self, user_id: str, session_id: str):
+    async def get_all_session_finding(self, user_id: str, session_id: str) -> list[Finding]:
         """Get all findings for a session."""
         if user_id is None or session_id is None:
             return []
@@ -145,14 +149,21 @@ class MemoryService:
             results = results.get("results", [])
             final_finding = []
             for f in results:
-                print(f["metadata"])
-                final_finding.append(f["metadata"])
+                finding = Finding(
+                    category=f["metadata"]["category"],
+                    severity=f["metadata"]["severity"],
+                    message=f["metadata"]["message"],
+                    rationale=f["metadata"]["rationale"],
+                    file_path=f["metadata"]["file_path"] if "file_path" in f["metadata"] else "",
+                    line=f["metadata"]["line"] if "line" in f["metadata"] else 1,
+                )
+                final_finding.append(finding)
             return final_finding
         except Exception as e:
             logger.error("failed_to_get_findings", error=str(e), user_id=user_id)
             return []
 
-    async def get_skill_profile(self, user_id: str | None) -> dict | None:
+    async def get_skill_profile(self, user_id: str | None) -> SkillProfile | None:
         """Retrieve user's skill profile from memory."""
         if user_id is None:
             return None
@@ -163,52 +174,63 @@ class MemoryService:
                 filters={"type": "skill_profile"},
             )
             # Find the skill profile entry (filtered by metadata)
-            return results.get("results", [])
+            results = results.get("results", [])
+            if len(results) == 0:
+                return None
+            retrieved_profile = SkillProfile(
+                skill_level=SkillLevel(results[0]["metadata"]["skill_level"]),
+                weaknesses=[
+                    Weakness(topic=w["topic"], description=w["description"])
+                    for w in results[0]["metadata"]["weaknesses"]
+                ],
+                all_searched_topics=results[0]["metadata"]["all_searched_topics"],
+            )
+            return retrieved_profile
         except Exception as e:
             logger.error("failed_to_get_skill_profile", error=str(e), user_id=user_id)
             return None
 
-    async def upsert_skill_profile(self, user_id: str, profile: dict) -> None:
+    async def upsert_skill_profile(self, user_id: str, profile: SkillProfile) -> None:
         """Create or update a user's skill profile memory.
 
         If a skill_profile memory already exists for this user, it is overwritten
         in place (same memory id). Otherwise a new one is created.
         """
-        if user_id is None:
-            return
-        memory = await self._get_memory()
+        try:
+            if user_id is None:
+                return
+            memory = await self._get_memory()
 
-        existing_result = await memory.get_all(
-            user_id=user_id,
-            filters={"type": "skill_profile"},
-        )
-        existing_result = existing_result.get("results", [])
-        content = self._profile_to_text(profile)
+            existing_result = await memory.get_all(
+                user_id=user_id,
+                filters={"type": "skill_profile"},
+            )
+            existing_result = existing_result.get("results", [])
+            content = self._profile_to_text(profile)
 
-        metadata = {
-            "type": "skill_profile",
-            "skill_level": profile["skill_level"].value,
-            "weaknesses": profile["weaknesses"],
-            "all_searched_topics": profile["all_searched_topics"],
-        }
+            metadata = {
+                "type": "skill_profile",
+                "skill_level": profile.skill_level.value,
+                "weaknesses": [{"topic": w.topic, "description": w.description} for w in profile.weaknesses],
+                "all_searched_topics": profile.all_searched_topics,
+            }
+            if existing_result not in (None, []):
+                memory_id = existing_result[0]["id"]
+                await memory.delete(memory_id=memory_id)
+            await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
+            logger.info("skill_profile_updated_successfully", user_id=user_id)
+        except Exception as e:
+            logger.error("failed_to_update_skill_profile", error=str(e), user_id=user_id)
 
-        if existing_result not in (None, []):
-            print("Skill profile already exists. Updating...")
-            memory_id = existing_result[0]["id"]
-            await memory.delete(memory_id=memory_id)
-        await memory.add(content, user_id=user_id, metadata=metadata, infer=False)
-
-    def _profile_to_text(self, profile: dict) -> str:
-        print("From profile to text...")
-        print(profile)
-        weakness_summary = (
-            "; ".join(f"{w['topic']}: {w['description']}" for w in profile["weaknesses"]) or "none identified"
-        )
-        topics = ", ".join(profile["all_searched_topics"]) or "none yet"
+    def _profile_to_text(self, profile: SkillProfile | None) -> str:
+        """Convert skill profile to text."""
+        if profile is None:
+            return "There is no skill profile yet."
+        weakness_summary = "; ".join(f"{w.topic}: {w.description}" for w in profile.weaknesses) or "none identified"
+        topics = ", ".join(profile.all_searched_topics) or "none yet"
         profile_text = (
-            f"Skill level: {profile['skill_level'].value}. Weaknesses: {weakness_summary}. Topics explored: {topics}."
+            f"Skill level: {profile.skill_level.value}. Weaknesses: {weakness_summary}. Topics explored: {topics}."
         )
-        print(profile_text)
         return profile_text
 
 
