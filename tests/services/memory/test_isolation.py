@@ -4,10 +4,10 @@ from __future__ import annotations
 from typing import Any
 import pytest
 from app.services.memory import MemoryService
-from .conftest import USER_A, USER_B
 import re
 import inspect
 import textwrap
+from tests.services.memory.conftest import USER_A, USER_B
 
 USER_A_MESSAGES = [
     {"role": "user", "content": "Help me fix this SQL query"},
