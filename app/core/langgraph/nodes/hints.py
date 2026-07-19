@@ -35,7 +35,7 @@ async def invoke_structured_llm_with_retry(system_prompt: str, user_payload: str
     api_key: SecretStr = SecretStr(os.environ.get("LITELLM_API_KEY", ""))
     base_url: str = os.environ.get("LITELLM_BASE_URL", "https://management.sprints.ai/litellm")
     llm: ChatOpenAI = ChatOpenAI(
-        model="FW-Kimi-K2.6",
+        model=settings.HINT_LLM_MODEL,
         api_key=api_key,
         base_url=base_url,
         max_retries=0,
