@@ -276,8 +276,8 @@ def test_run_performance_review_on_empty_code_does_not_crash():
 # ---------------------------------------------------------------------------
  
 requires_api_key = pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY"),
-    reason="OPENAI_API_KEY not set — skipping real LLM call",
+    not os.getenv("LITELLM_API_KEY"),
+    reason="LITELLM_API_KEY not set — skipping real LLM call",
 )
  
  

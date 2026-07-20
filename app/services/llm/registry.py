@@ -1,5 +1,5 @@
 """LLM model registry with pre-initialized instances."""
-
+import os
 from typing import (
     Any,
     Dict,
@@ -32,13 +32,22 @@ class LLMRegistry:
         {
             "name": "FW-Kimi-K2.6",
             "llm": ChatOpenAI(
-                model="gpt-oss-120b",
+                model="FW-Kimi-K2.6",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
                 model_kwargs=_TOKEN_LIMIT,
             ),
         },
+        {
+            "name": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "llm": ChatOpenAI(
+            model=os.getenv("DEFAULT_LLM_MODEL"),
+            api_key=os.getenv("LITELLM_API_KEY"),
+            base_url=os.getenv("LITELLM_BASE_URL")
+        )
+        }
+        ,
         {
             "name": "gpt-5-mini",
             "llm": ChatOpenAI(
