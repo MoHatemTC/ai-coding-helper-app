@@ -18,7 +18,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.core.langgraph.nodes.hints import generate_hint_node  # noqa: E402
-from app.schemas.review import Category, Finding, HintLevel, HintState, Severity  # noqa: E402
+from app.core.langgraph.nodes.inbound_first_stage import inbound_dlp_node  # noqa: E402
+from app.core.langgraph.nodes.inbound_intent import inbound_intent_node  # noqa: E402
+from app.schemas.review import Category, Finding, HintLevel, HintState, InboundTriggerReason, Severity  # noqa: E402
 
 
 DEFAULT_QUERY = "Help me make this parser safe without giving me the full solution."
@@ -116,6 +118,52 @@ def build_payload(
     }
 
 
+async def run_pipeline_with_guardrails(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Run inbound guardrails before generating a live mentoring hint."""
+    dlp_output = await inbound_dlp_node(payload)
+    merged_state = {**payload, **dlp_output}
+    if not merged_state.get("is_safe_sensitive", True):
+        st.error("⚠️ **Security Alert: Sensitive Information Detected**")
+        st.warning(
+            "Your submission appears to contain hardcoded API keys, passwords, or secrets. "
+            "Please remove all sensitive credentials from your code and query before submitting."
+        )
+        return None
+
+    intent_output = await inbound_intent_node(merged_state)
+    final_state = {**merged_state, **intent_output}
+    if not final_state.get("is_safe_intent", True):
+        trigger = final_state.get("trigger_reason")
+        redirect_msg = final_state.get("constructive_redirect")
+        if trigger == InboundTriggerReason.SOLUTION_EXTRACTION:
+            st.warning("💡 **Mentor Advice: Share Your Progress**")
+            st.info(
+                redirect_msg
+                or "Please show what you have tried or ask about a specific error rather than requesting a full solution."
+            )
+        elif trigger == InboundTriggerReason.OFF_TOPIC:
+            st.warning("📌 **Off-Topic Request**")
+            st.info(
+                redirect_msg
+                or "Please keep your questions focused on computer science, software engineering, and your current exercise."
+            )
+        else:
+            st.error("⚠️ **Request Blocked**")
+            st.info(redirect_msg or "Your request could not be processed at this time. Please rephrase your question.")
+        return None
+
+    sanitized_query = final_state.get("sanitized_query") or payload.get("user_query", "")
+    sanitized_code = (
+        final_state.get("sanitized_code") if final_state.get("sanitized_code") is not None else payload.get("code", "")
+    )
+    hint_payload = {
+        **final_state,
+        "user_query": sanitized_query,
+        "code": sanitized_code,
+    }
+    return await generate_hint_node(hint_payload)
+
+
 def render_mentor_response(result: dict[str, Any]) -> None:
     """Render the live mentor response as readable student-facing guidance."""
     latest_hint: dict[str, str | None] = result["latest_hint"]
@@ -159,10 +207,13 @@ def main() -> None:
         payload = build_payload(exercise_target=exercise_target, code=code, user_query=user_query)
         try:
             with st.spinner("Your mentor is reviewing your work..."):
-                live_result: dict[str, Any] = asyncio.run(generate_hint_node(payload))
+                live_result = asyncio.run(run_pipeline_with_guardrails(payload))
         except Exception:
             st.error("Your mentor is unavailable right now. Please try again in a moment.")
         else:
+            if live_result is None:
+                st.session_state.last_result = None
+                return
             updated_state = HintState.model_validate(live_result["hint_state"])
             st.session_state.hint_state = updated_state.model_dump()
             st.session_state.last_result = live_result
