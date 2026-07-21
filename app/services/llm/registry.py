@@ -32,11 +32,12 @@ class LLMRegistry:
         {
             "name": "FW-Kimi-K2.6",
             "llm": ChatOpenAI(
-                model="gpt-oss-120b",
+                model="fw-kimi-k2.6",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
-                model_kwargs=_TOKEN_LIMIT,
+                model_kwargs={"max_completion_tokens": 6000},
+                use_responses_api=False,
             ),
         },
         {
