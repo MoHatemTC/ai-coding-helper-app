@@ -27,8 +27,9 @@ cp .env.example .env.development
 
 | Variable | Default | Required | Description |
 | --- | --- | --- | --- |
-| `OPENAI_API_KEY` | — | Yes | OpenAI API key |
-| `DEFAULT_LLM_MODEL` | `gpt-5-mini` | No | Starting model — see [LLM Service](llm-service.md) for fallback order |
+| `LITELLM_API_KEY` | — | Yes | LiteLLM proxy API key |
+| `LITELLM_BASE_URL` | `https://learner-os.sprints.ai/litellm` | No | LiteLLM proxy base URL |
+| `DEFAULT_LLM_MODEL` | `fw-kimi-k2.6` | No | Starting model — see [LLM Service](llm-service.md) for fallback order |
 | `DEFAULT_LLM_TEMPERATURE` | `0.2` | No | Temperature for chat completions |
 | `MAX_TOKENS` | `2000` | No | Max tokens per LLM response |
 | `MAX_LLM_CALL_RETRIES` | `3` | No | Retries per model before switching to fallback |
