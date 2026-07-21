@@ -1,9 +1,7 @@
 """Async offline tests for the outbound response guardrail."""
 
 from typing import Any
-
 import pytest
-
 from app.core.langgraph.nodes.outbound import SAFE_TIMEOUT_RESPONSE, outbound_node
 from app.schemas.review import OutboundJudgeOutput, OutboundTriggerReason
 
