@@ -1,6 +1,5 @@
 """Inbound intent guardrail that evaluates sanitized user requests."""
 
-import asyncio
 from typing import Any
 
 import structlog
@@ -20,7 +19,11 @@ async def _invoke_intent_judge(client: Any, messages: list[SystemMessage | Human
     else:
         structured_client: Any = client.with_structured_output(InboundIntentJudgeOutput)
         response = await structured_client.ainvoke(messages)
-    return response if isinstance(response, InboundIntentJudgeOutput) else InboundIntentJudgeOutput.model_validate(response)
+    return (
+        response
+        if isinstance(response, InboundIntentJudgeOutput)
+        else InboundIntentJudgeOutput.model_validate(response)
+    )
 
 
 async def inbound_intent_node(
@@ -44,7 +47,7 @@ async def inbound_intent_node(
     problem_id = state.get("problem_id")
 
     try:
-        decision = await asyncio.wait_for(_invoke_intent_judge(primary, messages), timeout=2.5)
+        decision = await _invoke_intent_judge(primary, messages)
         logger.info("inbound_intent_primary_completed", problem_id=problem_id, is_safe_intent=decision.is_safe_intent)
     except Exception as primary_error:
         logger.warning(
@@ -53,8 +56,10 @@ async def inbound_intent_node(
             error_type=type(primary_error).__name__,
         )
         try:
-            decision = await asyncio.wait_for(_invoke_intent_judge(fallback, messages), timeout=1.5)
-            logger.info("inbound_intent_fallback_completed", problem_id=problem_id, is_safe_intent=decision.is_safe_intent)
+            decision = await _invoke_intent_judge(fallback, messages)
+            logger.info(
+                "inbound_intent_fallback_completed", problem_id=problem_id, is_safe_intent=decision.is_safe_intent
+            )
         except Exception as fallback_error:
             logger.exception(
                 "inbound_intent_fallback_failed_closed",
