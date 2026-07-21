@@ -310,12 +310,21 @@ def test_real_llm_flags_code_duplication_as_style():
 @pytest.mark.slow
 def test_real_llm_flags_bad_naming_as_style():
     """Verify that the real LLM identifies poor naming as a style issue."""
-    findings = run_async(run_performance_review(NAMING_ISSUE_CODE, language="python"))
- 
-    assert len(findings) >= 1
+
+
+    findings = run_async(
+        run_performance_review(
+            NAMING_ISSUE_CODE,
+            language="python",   # <-- enforce stricter rule
+        )
+    )
+
+    assert len(findings) >= 1, "expected at least one finding"
     assert any(f.category == Category.STYLE for f in findings), (
         "expected at least one style finding for single-letter variable names"
     )
+
+
  
  
 @requires_api_key

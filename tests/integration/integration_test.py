@@ -20,6 +20,8 @@ from app.schemas.review import (
     MentorResponse,
     Severity,
 )
+from dotenv import load_dotenv
+load_dotenv()
 
 
 logger: Any = structlog.get_logger(__name__)

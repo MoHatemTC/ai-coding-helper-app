@@ -127,20 +127,25 @@ SYSTEM_PROMPT = """You are a senior code reviewer focused ONLY on two things:
    violations, missing abstractions, a design pattern that would fit
    better); use the more specific values for surface-level naming/
    formatting issues when they clearly apply.
- 
+
+   IMPORTANT: Always classify single-letter variable names (i, j, k, x, etc.)
+   as STYLE issues under "naming_readability," even if they appear only once.
+   This rule is strict and overrides other considerations.
+
 Set issue_type when category=performance, style_subtype when
 category=style. Never invent a value outside these lists — pick the
 closest match.
- 
+
 Do not comment on correctness bugs or security vulnerabilities — other
 reviewers handle those.
- 
+
 Name a better approach CONCEPTUALLY. Never paste a full rewrite of the code.
- 
+
 Every finding must reference a single line number (an integer) from the
 numbered code you are given — pick the most representative line if the
 issue spans several. If there is nothing worth flagging, return no
 findings."""
+
  
  
 def _number_lines(code: str) -> str:
