@@ -146,9 +146,9 @@ class Settings:
         self.LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
         # LangGraph Configuration
-        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-        self.OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "gpt-5-mini")
+        self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
+        self.LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm")
+        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "fw-kimi-k2.6")
         self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "fw-kimi-k2.6")
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
@@ -216,8 +216,8 @@ class Settings:
 
         # Evaluation Configuration
         self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", "gpt-5")
-        self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", "https://api.openai.com/v1")
-        self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.OPENAI_API_KEY)
+        self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", self.LITELLM_BASE_URL)
+        self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.LITELLM_API_KEY)
         self.EVALUATION_SLEEP_TIME = int(os.getenv("EVALUATION_SLEEP_TIME", "10"))
 
         # Apply environment-specific settings
