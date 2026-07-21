@@ -42,7 +42,7 @@ _UUID_PATTERN = re.compile(
 )
 _GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
 _DATA_URI_PATTERN = re.compile(r"data:[^\s,;]+(?:;[^\s,;]+)*;base64,[A-Za-z0-9+/=]+", re.IGNORECASE)
-_MINIFIED_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]{0,15}$")
+_PYTHON_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ENTROPY_THRESHOLD = 3.5
 
 
@@ -76,7 +76,7 @@ def _is_benign_high_entropy(value: str, text: str, start: int, end: int) -> bool
     """Exclude known harmless opaque values from entropy-based detection."""
     if _UUID_PATTERN.fullmatch(value) or _GIT_COMMIT_PATTERN.fullmatch(value):
         return True
-    if _MINIFIED_IDENTIFIER_PATTERN.fullmatch(value):
+    if _PYTHON_IDENTIFIER_PATTERN.fullmatch(value):
         return True
     return any(match.start() <= start and end <= match.end() for match in _DATA_URI_PATTERN.finditer(text))
 
@@ -84,6 +84,12 @@ def _is_benign_high_entropy(value: str, text: str, start: int, end: int) -> bool
 def _redact_match(text: str, start: int, end: int) -> str:
     """Replace one sensitive value without changing adjacent source text."""
     return f"{text[:start]}{_REDACTED_SECRET}{text[end:]}"
+
+
+def _is_comment_match(text: str, start: int) -> bool:
+    """Return whether a match begins in a Python-style comment span."""
+    line_start = text.rfind("\n", 0, start) + 1
+    return text[line_start:start].lstrip().startswith("#")
 
 
 def _scan_and_sanitize(text: str) -> tuple[str, list[str]]:
@@ -115,6 +121,8 @@ def _scan_and_sanitize(text: str) -> tuple[str, list[str]]:
             record(secret_type, match.start(), match.end())
 
     for match in _SECRET_ASSIGNMENT_PATTERN.finditer(text):
+        if _is_comment_match(text, match.start()):
+            continue
         record("credential_assignment", match.start("value"), match.end("value"))
 
     for match in _CREDIT_CARD_PATTERN.finditer(text):
