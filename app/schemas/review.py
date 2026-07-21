@@ -13,6 +13,7 @@ class InboundTriggerReason(str, Enum):
     OFF_TOPIC = "off_topic"
     HARMFUL_ILLEGAL = "harmful_illegal"
     EVALUATOR_ERROR = "evaluator_error"
+    DLP_SCANNER_ERROR = "dlp_scanner_error"
 
 
 class InboundIntentJudgeOutput(BaseModel):
