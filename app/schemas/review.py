@@ -22,7 +22,7 @@ class InboundIntentJudgeOutput(BaseModel):
     is_safe_intent: bool = Field(
         description="True if the user query is safe, on-topic, and not attempting full solution extraction."
     )
-    trigger_reason: InboundTriggerReason | None = Field(
+    inbound_trigger_reason: InboundTriggerReason | None = Field(
         default=None,
         description="The specific category triggering a block if is_safe_intent is False."
     )
@@ -46,7 +46,7 @@ class OutboundJudgeOutput(BaseModel):
     is_safe_output: bool = Field(
         description="True if the assistant response is safe and does not provide a complete student solution."
     )
-    trigger_reason: OutboundTriggerReason | None = Field(
+    outbound_trigger_reason: OutboundTriggerReason | None = Field(
         default=None,
         description="The specific category triggering a block if is_safe_output is False.",
     )
@@ -62,7 +62,7 @@ class InboundDLPOutput(BaseModel):
     is_safe_sensitive: bool = Field(
         description="True if no credentials or secrets were detected; False if sensitive data was found or scan crashed."
     )
-    trigger_reason: Optional[InboundTriggerReason] = Field(
+    inbound_trigger_reason: Optional[InboundTriggerReason] = Field(
         default=None,
         description="Trigger category (SENSITIVE_DATA_EXPOSURE or DLP_SCANNER_ERROR) if is_safe_sensitive is False."
     )

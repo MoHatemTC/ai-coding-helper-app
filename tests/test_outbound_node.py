@@ -29,7 +29,7 @@ class MockBlockJudgeClient:
         """Return a full-solution-leak decision without a network call."""
         return OutboundJudgeOutput(
             is_safe_output=False,
-            trigger_reason=OutboundTriggerReason.FULL_SOLUTION_LEAK,
+            outbound_trigger_reason=OutboundTriggerReason.FULL_SOLUTION_LEAK,
             constructive_redirect="What helper function could you write first to handle one input at a time?",
         )
 
@@ -70,7 +70,7 @@ async def test_outbound_blocks_full_code_leak() -> None:
     )
 
     assert result["is_safe_output"] is False
-    assert result["trigger_reason"] == OutboundTriggerReason.FULL_SOLUTION_LEAK
+    assert result["outbound_trigger_reason"] == OutboundTriggerReason.FULL_SOLUTION_LEAK
     assert result["final_response"] == result["constructive_redirect"]
 
 
@@ -96,5 +96,5 @@ async def test_outbound_fails_closed_when_both_clients_fail() -> None:
     )
 
     assert result["is_safe_output"] is False
-    assert result["trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
+    assert result["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
     assert result["final_response"] == SAFE_TIMEOUT_RESPONSE
