@@ -68,12 +68,12 @@ async def inbound_intent_node(
             )
             return {
                 "is_safe_intent": False,
-                "trigger_reason": InboundTriggerReason.EVALUATOR_ERROR,
+                "inbound_trigger_reason": InboundTriggerReason.EVALUATOR_ERROR,
                 "constructive_redirect": None,
             }
 
     return {
         "is_safe_intent": decision.is_safe_intent,
-        "trigger_reason": decision.trigger_reason,
+        "inbound_trigger_reason": decision.inbound_trigger_reason,
         "constructive_redirect": decision.constructive_redirect,
     }

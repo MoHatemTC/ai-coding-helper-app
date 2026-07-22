@@ -57,7 +57,7 @@ async def outbound_node(
             "outbound_primary_completed",
             problem_id=problem_id,
             is_safe_output=decision.is_safe_output,
-            trigger_reason=decision.trigger_reason,
+            outbound_trigger_reason=decision.outbound_trigger_reason,
         )
     except Exception as primary_error:
         logger.warning(
@@ -71,7 +71,7 @@ async def outbound_node(
                 "outbound_fallback_completed",
                 problem_id=problem_id,
                 is_safe_output=decision.is_safe_output,
-                trigger_reason=decision.trigger_reason,
+                outbound_trigger_reason=decision.outbound_trigger_reason,
             )
         except Exception as fallback_error:
             logger.exception(
@@ -81,7 +81,7 @@ async def outbound_node(
             )
             return {
                 "is_safe_output": False,
-                "trigger_reason": OutboundTriggerReason.EVALUATOR_ERROR,
+                "outbound_trigger_reason": OutboundTriggerReason.EVALUATOR_ERROR,
                 "constructive_redirect": None,
                 "final_response": SAFE_TIMEOUT_RESPONSE,
             }
@@ -92,11 +92,11 @@ async def outbound_node(
             "outbound_response_blocked",
             problem_id=problem_id,
             is_safe_output=decision.is_safe_output,
-            trigger_reason=decision.trigger_reason,
+            outbound_trigger_reason=decision.outbound_trigger_reason,
         )
     return {
         "is_safe_output": decision.is_safe_output,
-        "trigger_reason": decision.trigger_reason,
+        "outbound_trigger_reason": decision.outbound_trigger_reason,
         "constructive_redirect": decision.constructive_redirect,
         "final_response": final_response,
     }
