@@ -1377,6 +1377,7 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "detect-secrets" },
+    { name = "httpx" },
     { name = "pre-commit" },
     { name = "pyright" },
     { name = "ruff" },
@@ -1441,6 +1442,7 @@ provides-extras = ["dev", "cache"]
 [package.metadata.requires-dev]
 dev = [
     { name = "detect-secrets", specifier = ">=1.5.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pyright", specifier = ">=1.1.390" },
     { name = "ruff", specifier = ">=0.11.4" },
