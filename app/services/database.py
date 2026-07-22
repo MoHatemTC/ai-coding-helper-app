@@ -54,6 +54,12 @@ class DatabaseService:
                 pool_recycle=1800,  # Recycle connections after 30 minutes
             )
 
+            # Create all tables if they don't exist (for development/testing)
+            from sqlmodel import SQLModel
+            from app.models.user import User  # noqa: F401
+            from app.models.session import Session as ChatSession  # noqa: F401
+            SQLModel.metadata.create_all(self.engine)
+
             logger.info(
                 "database_initialized",
                 environment=settings.ENVIRONMENT.value,

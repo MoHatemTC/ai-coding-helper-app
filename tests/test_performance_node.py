@@ -275,9 +275,29 @@ def test_run_performance_review_on_empty_code_does_not_crash():
 # directly instead.
 # ---------------------------------------------------------------------------
  
+def _llm_available() -> bool:
+    """Check whether a real LLM call is likely to succeed.
+
+    Returns False when:
+    - No API key is configured, or
+    - A custom base URL is used (e.g. LiteLLM proxy) that may not support
+      the registry's model names — integration tests would fail with 403.
+    """
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if not api_key:
+        return False
+    # If using a custom proxy (non-OpenAI), the registry model names
+    # (e.g. "gpt-5-mini") may not be recognised — skip integration tests
+    # unless using the official OpenAI endpoint.
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    if "api.openai.com" not in base_url.lower():
+        return False
+    return True
+
+
 requires_api_key = pytest.mark.skipif(
-    not os.getenv("OPENAI_API_KEY"),
-    reason="OPENAI_API_KEY not set — skipping real LLM call",
+    not _llm_available(),
+    reason="Real LLM not available — OPENAI_API_KEY missing, or custom proxy in use",
 )
  
  
