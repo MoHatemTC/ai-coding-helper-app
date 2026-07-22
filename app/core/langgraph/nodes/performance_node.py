@@ -1,10 +1,10 @@
 """Performance & best-practice review node.
- 
+
 Maps to PRD F1.5 (Sprint 1 groundwork for the Performance & Best-Practices
 lane): scaffolds a node that emits typed findings (category=performance /
 style) using the shared Finding schema, and proves it works via a real
 LLM call.
- 
+
 Schema notes:
   - `line: int` — single line number, per Aly's committed schema.
   - `category` has four top-level values: correctness, security,
@@ -12,13 +12,13 @@ Schema notes:
     sub-label folded under `style` (alongside naming/formatting/duplication/
     SOLID/design-pattern issues), per confirmation from Aly.
 """
- 
+
 from __future__ import annotations
- 
+
 import asyncio
 from enum import Enum
 from typing import List, Optional
- 
+
 from pydantic import BaseModel, Field
 
 from app.schemas.review import Category, Finding, Severity
@@ -35,8 +35,8 @@ class PerformanceReviewResult(BaseModel):
     """
 
     findings: List[Finding] = Field(default_factory=list)
- 
- 
+
+
 # ---------------------------------------------------------------------------
 # Sub-labels this lane looks for. NOT part of the shared Finding schema
 # (Aly owns that) — but ACTIVELY enforced below via PerformanceFindingDraft,
@@ -45,21 +45,21 @@ class PerformanceReviewResult(BaseModel):
 # the subtype get folded into the shared Finding's `message` field as a
 # "[tag]" prefix, so the shared contract stays exactly what Aly expects.
 # ---------------------------------------------------------------------------
- 
- 
+
+
 class PerformanceIssueType(str, Enum):
     """Valid subtypes when category=performance."""
- 
+
     ALGORITHMIC_COMPLEXITY = "algorithmic_complexity"
     REDUNDANT_COMPUTATION = "redundant_computation"
     INEFFICIENT_DATA_STRUCTURE = "inefficient_data_structure"
     UNNECESSARY_IO_IN_LOOP = "unnecessary_io_in_loop"
     RESOURCE_HANDLING = "resource_handling"
- 
- 
+
+
 class StyleSubtype(str, Enum):
     """Valid subtypes when category=style."""
- 
+
     BEST_PRACTICE = "best_practice"  # SOLID / missing abstraction / design pattern / duplication
     CODE_DUPLICATION = "code_duplication"
     SOLID_VIOLATION = "solid_violation"
@@ -67,8 +67,8 @@ class StyleSubtype(str, Enum):
     DESIGN_PATTERN_OPPORTUNITY = "design_pattern_opportunity"
     NAMING_READABILITY = "naming_readability"
     FORMATTING = "formatting"
- 
- 
+
+
 class PerformanceFindingDraft(BaseModel):
     """Internal schema targeted by the LLM.
 
@@ -85,8 +85,8 @@ class PerformanceFindingDraft(BaseModel):
     style_subtype: Optional[StyleSubtype] = None
     message: str
     rationale: str
- 
- 
+
+
 class PerformanceReviewDraft(BaseModel):
     """Structured response schema requested from the LLM.
 
@@ -95,8 +95,8 @@ class PerformanceReviewDraft(BaseModel):
     """
 
     findings: List[PerformanceFindingDraft] = Field(default_factory=list)
- 
- 
+
+
 def _draft_to_finding(draft: PerformanceFindingDraft) -> Finding:
     """Convert a validated draft into a shared Finding.
 
@@ -113,8 +113,8 @@ def _draft_to_finding(draft: PerformanceFindingDraft) -> Finding:
         message=message,
         rationale=draft.rationale,
     )
- 
- 
+
+
 SYSTEM_PROMPT = """You are a senior code reviewer focused ONLY on two things:
  
 1. category="performance": set issue_type to exactly one of:
@@ -146,44 +146,43 @@ numbered code you are given — pick the most representative line if the
 issue spans several. If there is nothing worth flagging, return no
 findings."""
 
- 
- 
+
 def _number_lines(code: str) -> str:
     """Prefix each line with its number so the LLM can reference real lines."""
     return "\n".join(f"{i + 1}: {line}" for i, line in enumerate(code.splitlines()))
- 
- 
+
+
 async def run_performance_review(code: str, language: Optional[str] = None) -> List[Finding]:
     """Run the performance/best-practice review node.
- 
+
     This is the function that would eventually be wired into
     `app/core/langgraph/graph.py` as a graph node (Sprint 2 work, once the
     review sub-graph exists) — e.g.:
- 
+
         graph_builder.add_node("performance_review", performance_review_node)
- 
+
     Args:
         code: The submitted source code.
         language: Optional language hint (e.g. "python").
- 
+
     Returns:
         A list of Finding objects, category=performance or category=style.
     """
     lang_hint = f"Language: {language}\n\n" if language else ""
     user_content = f"{lang_hint}Numbered code:\n{_number_lines(code)}"
- 
+
     messages = [
         ("system", SYSTEM_PROMPT),
         ("user", user_content),
     ]
- 
+
     result: PerformanceReviewDraft = await llm_service.call(
         messages,
         response_format=PerformanceReviewDraft,
     )
     return [_draft_to_finding(draft) for draft in result.findings]
- 
- 
+
+
 # ---------------------------------------------------------------------------
 # "Produce a baseline finding via the LLM" — run this file directly to prove
 # the node works end-to-end against a real code sample.
@@ -194,7 +193,7 @@ async def run_performance_review(code: str, language: Optional[str] = None) -> L
 # run_baseline_with_openrouter.py for testing against a free OpenRouter
 # model directly, without touching shared registry/service code.
 # ---------------------------------------------------------------------------
- 
+
 SAMPLE_CODE = """def find_duplicates(items):
     duplicates = []
     for i in range(len(items)):
@@ -203,9 +202,9 @@ SAMPLE_CODE = """def find_duplicates(items):
                 duplicates.append(items[i])
     return duplicates
 """
- 
+
 if __name__ == "__main__":
- 
+
     async def _main() -> None:
         """Run the node against SAMPLE_CODE and print each finding as JSON."""
         findings = await run_performance_review(SAMPLE_CODE, language="python")
@@ -213,6 +212,5 @@ if __name__ == "__main__":
             print("No findings returned — check the prompt or sample code.")
         for f in findings:
             print(f.model_dump_json(indent=2))
- 
+
     asyncio.run(_main())
- 
