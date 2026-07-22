@@ -16,6 +16,7 @@ from langchain_core.messages import (
     ToolMessage,
     convert_to_openai_messages,
 )
+from langfuse import observe  # type: ignore[attr-defined]
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import (
@@ -127,6 +128,7 @@ class LangGraphAgent:
                 raise e
         return self._connection_pool
 
+    @observe()  # type: ignore[arg-type]
     async def _chat(self, state: GraphState, config: RunnableConfig) -> Command:
         """Process the chat state and generate a response.
 
@@ -198,6 +200,7 @@ class LangGraphAgent:
             raise Exception(f"failed to get llm response after trying all models: {str(e)}")
 
     # Define our tool node
+    @observe()  # type: ignore[arg-type]
     async def _tool_call(self, state: GraphState) -> Command:
         """Process tool calls from the last message.
 

@@ -60,7 +60,7 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
-            model_name="gpt-5.4-nano",
+            model_name="kimi-k2.5",
             response_format=SessionTitle,
             reasoning={"effort": "low"},
             max_tokens=32,
