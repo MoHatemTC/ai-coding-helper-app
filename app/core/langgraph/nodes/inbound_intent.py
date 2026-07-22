@@ -74,6 +74,6 @@ async def inbound_intent_node(
 
     return {
         "is_safe_intent": decision.is_safe_intent,
-        "inbound_trigger_reason": decision.inbound_trigger_reason,
+        "inbound_trigger_reason": decision.trigger_reason,
         "constructive_redirect": decision.constructive_redirect,
     }
