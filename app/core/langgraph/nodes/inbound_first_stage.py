@@ -173,7 +173,7 @@ async def inbound_dlp_node(state: dict[str, Any]) -> dict[str, Any]:
             )
             return {
                 "is_safe_sensitive": False,
-                "trigger_reason": InboundTriggerReason.SENSITIVE_DATA_EXPOSURE,
+                "inbound_trigger_reason": InboundTriggerReason.SENSITIVE_DATA_EXPOSURE,
                 "detected_secret_types": detected_secret_types,
                 "sanitized_query": sanitized_query,
                 "sanitized_code": sanitized_code,
@@ -200,7 +200,7 @@ async def inbound_dlp_node(state: dict[str, Any]) -> dict[str, Any]:
         )
         return {
             "is_safe_sensitive": False,
-            "trigger_reason": InboundTriggerReason.DLP_SCANNER_ERROR,
+            "inbound_trigger_reason": InboundTriggerReason.DLP_SCANNER_ERROR,
             "detected_secret_types": [],
             "sanitized_query": _REDACTED_SECRET,
             "sanitized_code": _REDACTED_SECRET if code is not None else None,
