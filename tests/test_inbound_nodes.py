@@ -32,7 +32,7 @@ class MockBlockJudgeClient:
         """Return a solution-extraction decision without a network call."""
         return InboundIntentJudgeOutput(
             is_safe_intent=False,
-            trigger_reason=InboundTriggerReason.SOLUTION_EXTRACTION,
+            inbound_trigger_reason=InboundTriggerReason.SOLUTION_EXTRACTION,
             constructive_redirect="Share your current attempt and I can help you improve it.",
         )
 
@@ -60,7 +60,7 @@ class MockOffTopicJudgeClient:
         """Return an off-topic decision without a network call."""
         return InboundIntentJudgeOutput(
             is_safe_intent=False,
-            trigger_reason=InboundTriggerReason.OFF_TOPIC,
+            inbound_trigger_reason=InboundTriggerReason.OFF_TOPIC,
             constructive_redirect="Please keep your question focused on software engineering.",
         )
 
@@ -126,7 +126,7 @@ async def test_dlp_blocks_and_redacts_api_key() -> None:
     )
 
     assert result["is_safe_sensitive"] is False
-    assert result["trigger_reason"] == InboundTriggerReason.SENSITIVE_DATA_EXPOSURE
+    assert result["inbound_trigger_reason"] == InboundTriggerReason.SENSITIVE_DATA_EXPOSURE
     assert result["sanitized_code"] == 'api_key = "[REDACTED_SECRET]"'
 
 
@@ -140,7 +140,7 @@ async def test_intent_blocks_solution_extraction() -> None:
     )
 
     assert result["is_safe_intent"] is False
-    assert result["trigger_reason"] == InboundTriggerReason.SOLUTION_EXTRACTION
+    assert result["inbound_trigger_reason"] == InboundTriggerReason.SOLUTION_EXTRACTION
     assert result["constructive_redirect"]
 
 
@@ -154,7 +154,7 @@ async def test_intent_blocks_off_topic_query() -> None:
     )
 
     assert result["is_safe_intent"] is False
-    assert result["trigger_reason"] == InboundTriggerReason.OFF_TOPIC
+    assert result["inbound_trigger_reason"] == InboundTriggerReason.OFF_TOPIC
 
 
 @pytest.mark.asyncio
@@ -179,4 +179,4 @@ async def test_intent_fails_closed_when_both_clients_fail() -> None:
     )
 
     assert result["is_safe_intent"] is False
-    assert result["trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
+    assert result["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
