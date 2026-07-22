@@ -104,9 +104,13 @@ class ChatResponse(BaseResponse):
 
     Attributes:
         messages: List of messages in the conversation.
+        has_more: Whether there are more messages available.
+        next_cursor: Cursor for fetching the next page.
     """
 
     messages: List[Message] = Field(..., description="List of messages in the conversation")
+    has_more: bool = Field(default=False, description="Whether there are more messages available")
+    next_cursor: str | None = Field(default=None, description="Cursor for fetching the next page")
 
 
 class StreamResponse(BaseResponse):

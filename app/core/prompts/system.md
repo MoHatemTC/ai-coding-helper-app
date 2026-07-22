@@ -14,6 +14,9 @@ Help the user with their questions.
 # User Skill Profile
 {skill_profile}
 
+# Conversation Summary
+{summary}
+
 {code_context}
 # Current date and time
 {current_date_and_time}

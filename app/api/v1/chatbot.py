@@ -10,6 +10,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
 )
 from fastapi.responses import StreamingResponse
@@ -26,6 +27,7 @@ from app.schemas.chat import (
     ChatResponse,
     StreamResponse,
 )
+from app.services.message import message_service
 from app.services.session_naming import maybe_name_session
 
 router = APIRouter()
@@ -41,16 +43,8 @@ async def chat(
 ):
     """Process a chat request using LangGraph.
 
-    Args:
-        request: The FastAPI request object for rate limiting.
-        chat_request: The chat request containing messages.
-        session: The current session from the auth token.
-
-    Returns:
-        ChatResponse: The processed chat response.
-
-    Raises:
-        HTTPException: If there's an error processing the request.
+    Returns only the AI response message from this request.
+    Message storage happens as a graph node after the LLM response.
     """
     try:
         logger.info(
@@ -86,19 +80,7 @@ async def chat_stream(
     chat_request: ChatRequest,
     session: Session = Depends(get_current_session),
 ):
-    """Process a chat request using LangGraph with streaming response.
-
-    Args:
-        request: The FastAPI request object for rate limiting.
-        chat_request: The chat request containing messages.
-        session: The current session from the auth token.
-
-    Returns:
-        StreamingResponse: A streaming response of the chat completion.
-
-    Raises:
-        HTTPException: If there's an error processing the request.
-    """
+    """Process a chat request using LangGraph with streaming response."""
     try:
         logger.info(
             "stream_chat_request_received",
@@ -110,14 +92,7 @@ async def chat_stream(
             maybe_name_session(session.id, session.name, chat_request.messages)
 
         async def event_generator():
-            """Generate streaming events.
-
-            Yields:
-                str: Server-sent events in JSON format.
-
-            Raises:
-                Exception: If there's an error during streaming.
-            """
+            """Generate streaming events."""
             try:
                 with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
                     async for chunk in agent.get_stream_response(
@@ -131,7 +106,6 @@ async def chat_stream(
                         response = StreamResponse(content=chunk, done=False)
                         yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
 
-                # Send final message indicating completion
                 final_response = StreamResponse(content="", done=True)
                 yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
 
@@ -160,22 +134,39 @@ async def chat_stream(
 async def get_session_messages(
     request: Request,
     session: Session = Depends(get_current_session),
+    limit: int = Query(default=50, ge=1, le=100, description="Messages per page"),
+    after: str | None = Query(default=None, description="Cursor for next page"),
+    before: str | None = Query(default=None, description="Cursor for previous page"),
 ):
-    """Get all messages for a session.
+    """Get paginated messages for a session from the messages table.
 
-    Args:
-        request: The FastAPI request object for rate limiting.
-        session: The current session from the auth token.
-
-    Returns:
-        ChatResponse: All messages in the session.
-
-    Raises:
-        HTTPException: If there's an error retrieving the messages.
+    Uses cursor-based pagination with the message id as cursor.
     """
     try:
-        messages = await agent.get_chat_history(session.id)
-        return ChatResponse(messages=messages)
+        db_messages, has_more = await message_service.get_messages(
+            session_id=session.id,
+            limit=limit,
+            after=after,
+            before=before,
+        )
+
+        from app.schemas.chat import Message as MessageSchema
+
+        messages = [
+            MessageSchema(
+                role=msg.role,  # type: ignore[arg-type]
+                content=msg.message,
+            )
+            for msg in db_messages
+        ]
+
+        next_cursor = str(db_messages[-1].id) if has_more and db_messages else None
+
+        return ChatResponse(
+            messages=messages,
+            has_more=has_more,
+            next_cursor=next_cursor,
+        )
     except Exception as e:
         logger.exception("get_messages_failed", session_id=session.id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -187,16 +178,9 @@ async def clear_chat_history(
     request: Request,
     session: Session = Depends(get_current_session),
 ):
-    """Clear all messages for a session.
-
-    Args:
-        request: The FastAPI request object for rate limiting.
-        session: The current session from the auth token.
-
-    Returns:
-        dict: A message indicating the chat history was cleared.
-    """
+    """Clear all messages for a session from both the messages table and LangGraph checkpoints."""
     try:
+        await message_service.delete_messages(session.id)
         await agent.clear_chat_history(session.id)
         return {"message": "Chat history cleared successfully"}
     except Exception as e:

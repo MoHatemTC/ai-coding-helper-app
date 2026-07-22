@@ -327,10 +327,9 @@ class LangGraphAgent:
 
         try:
             # Run state check and memory search concurrently to save 200-500ms
-            state, relevant_memory, skill_profile = await asyncio.gather(
+            state, relevant_memory = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, messages[-1].content),
-                memory_service.get_skill_profile(user_id),
             )
 
             if state.next:
@@ -347,7 +346,6 @@ class LangGraphAgent:
                         "long_term_memory": relevant_memory,
                         "code": code,
                         "language": language,
-                        "skill_profile": memory_service._profile_to_text(skill_profile),
                     },
                     config=config,
                 )
@@ -409,10 +407,9 @@ class LangGraphAgent:
 
         try:
             # Run state check and memory search concurrently to save 200-500ms
-            state, relevant_memory, skill_profile = await asyncio.gather(
+            state, relevant_memory = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, messages[-1].content),
-                memory_service.get_skill_profile(user_id),
             )
 
             if state.next:
@@ -425,7 +422,6 @@ class LangGraphAgent:
                     "long_term_memory": relevant_memory,
                     "code": code,
                     "language": language,
-                    "skill_profile": memory_service._profile_to_text(skill_profile),
                 }
 
             async for token, _ in graph.astream(

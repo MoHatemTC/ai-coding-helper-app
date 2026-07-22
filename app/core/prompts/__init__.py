@@ -19,6 +19,7 @@ with open(os.path.join(_PROMPTS_DIR, "session_title.md"), "r") as _f:
 def load_system_prompt(username: Optional[str] = None, **kwargs):
     """Load the system prompt from the cached template."""
     user_context = f"# User\nYou are talking to {username}.\n" if username else ""
+    kwargs.setdefault("summary", "")
     return _SYSTEM_PROMPT_TEMPLATE.format(
         agent_name=settings.PROJECT_NAME + " Agent",
         current_date_and_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
