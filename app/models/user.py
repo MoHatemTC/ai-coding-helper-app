@@ -15,6 +15,7 @@ from sqlmodel import (
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.models.message import Message
     from app.models.session import Session
 
 
@@ -28,6 +29,7 @@ class User(BaseModel, table=True):
         username: Optional display name for the user
         created_at: When the user was created
         sessions: Relationship to user's chat sessions
+        messages: Relationship to user's messages
     """
 
     id: int = Field(default=None, primary_key=True)
@@ -35,6 +37,7 @@ class User(BaseModel, table=True):
     hashed_password: str
     username: Optional[str] = Field(default=None, index=False)
     sessions: List["Session"] = Relationship(back_populates="user")
+    messages: List["Message"] = Relationship(back_populates="user")
 
     def verify_password(self, password: str) -> bool:
         """Verify if the provided password matches the hash."""

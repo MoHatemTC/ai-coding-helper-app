@@ -2,6 +2,7 @@
 
 from typing import (
     TYPE_CHECKING,
+    List,
     Optional,
 )
 
@@ -13,6 +14,7 @@ from sqlmodel import (
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.models.message import Message
     from app.models.user import User
 
 
@@ -34,3 +36,4 @@ class Session(BaseModel, table=True):
     name: str = Field(default="")
     username: Optional[str] = Field(default=None)
     user: "User" = Relationship(back_populates="sessions")
+    messages: List["Message"] = Relationship(back_populates="session")
