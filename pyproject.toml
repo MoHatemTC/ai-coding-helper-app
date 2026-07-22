@@ -61,6 +61,7 @@ cache = [
 [dependency-groups]
 dev = [
     "detect-secrets>=1.5.0",
+    "httpx>=0.28.1",
     "pre-commit>=4.5.1",
     "pyright>=1.1.390",
     "ruff>=0.11.4",
