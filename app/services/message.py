@@ -106,7 +106,6 @@ class MessageService:
 
                 has_more = len(results) > effective_limit
                 messages = results[:effective_limit]
-                messages.reverse()
 
                 return messages, has_more
         except Exception:
