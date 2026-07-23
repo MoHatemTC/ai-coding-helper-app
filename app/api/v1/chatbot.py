@@ -25,10 +25,13 @@ from app.models.session import Session
 from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
+    PaginatedChatResponse,
     StreamResponse,
 )
 from app.services.message import message_service
 from app.services.session_naming import maybe_name_session
+from app.schemas.chat import Message as MessageSchema
+
 
 router = APIRouter()
 agent = LangGraphAgent()
@@ -129,7 +132,7 @@ async def chat_stream(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/messages", response_model=ChatResponse)
+@router.get("/messages", response_model=PaginatedChatResponse)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["messages"][0])
 async def get_session_messages(
     request: Request,
@@ -150,8 +153,6 @@ async def get_session_messages(
             before=before,
         )
 
-        from app.schemas.chat import Message as MessageSchema
-
         messages = [
             MessageSchema(
                 role=msg.role,  # type: ignore[arg-type]
@@ -162,7 +163,7 @@ async def get_session_messages(
 
         next_cursor = str(db_messages[-1].id) if has_more and db_messages else None
 
-        return ChatResponse(
+        return PaginatedChatResponse(
             messages=messages,
             has_more=has_more,
             next_cursor=next_cursor,

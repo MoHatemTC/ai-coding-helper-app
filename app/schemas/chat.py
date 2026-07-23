@@ -103,12 +103,22 @@ class ChatResponse(BaseResponse):
     """Response model for chat endpoint.
 
     Attributes:
-        messages: List of messages in the conversation.
+        messages: List of messages returned by this request.
+    """
+
+    messages: List[Message] = Field(..., description="List of messages returned by this request")
+
+
+class PaginatedChatResponse(BaseResponse):
+    """Response model for paginated messages endpoint.
+
+    Attributes:
+        messages: List of messages in the page.
         has_more: Whether there are more messages available.
         next_cursor: Cursor for fetching the next page.
     """
 
-    messages: List[Message] = Field(..., description="List of messages in the conversation")
+    messages: List[Message] = Field(..., description="List of messages in the page")
     has_more: bool = Field(default=False, description="Whether there are more messages available")
     next_cursor: str | None = Field(default=None, description="Cursor for fetching the next page")
 
