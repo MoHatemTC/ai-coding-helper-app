@@ -8,6 +8,7 @@ from langchain_core.messages import (
     HumanMessage,
     convert_to_openai_messages,
 )
+from langchain_core.runnables.config import RunnableConfig
 
 from app.core.logging import logger
 from app.schemas import GraphState
@@ -15,7 +16,7 @@ from app.services.memory import memory_service
 from app.services.message import message_service
 
 
-async def store_messages_node(state: GraphState) -> dict:
+async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict:
     """Store the current turn's messages to mem0 and messages table.
 
     Runs after the LLM response completes (no more tool calls).
@@ -23,13 +24,14 @@ async def store_messages_node(state: GraphState) -> dict:
 
     Args:
         state: The current graph state containing messages and last_message_index.
+        config: The runnable configuration containing metadata (user_id, session_id).
 
     Returns:
         Empty dict — this node doesn't modify state.
     """
     messages = state.messages
     last_message_index = state.last_message_index
-    metadata = getattr(state, "_metadata", {})
+    metadata = config.get("metadata", {})
     user_id = metadata.get("user_id")
     session_id = metadata.get("session_id")
 

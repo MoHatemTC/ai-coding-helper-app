@@ -7,7 +7,6 @@ from typing import (
 )
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from app.core.config import settings
@@ -62,7 +61,7 @@ class LLMRegistry:
 
         if kwargs:
             logger.debug("creating_llm_with_custom_args", model_name=model_name, custom_args=list(kwargs.keys()))
-            return ChatOpenAI(model=model_name, api_key=_API_KEY, **kwargs)
+            return ChatGroq(model=os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant"))
 
         logger.debug("using_default_llm_instance", model_name=model_name)
         return model_entry["llm"]
