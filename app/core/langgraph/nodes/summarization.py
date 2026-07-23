@@ -7,6 +7,7 @@ from app.core.logging import logger
 from app.schemas import GraphState
 from app.services.llm import llm_service
 from app.utils.graph import _count_tokens_tiktoken
+from langgraph.graph.state import END, Command
 
 SUMMARIZATION_PROMPT = """You are a conversation summarizer. Summarize the following conversation messages into a concise narrative that preserves key context, decisions, and topics discussed.
 
@@ -18,7 +19,7 @@ Rules:
 - Focus on substantive content only"""
 
 
-async def summarization_node(state: GraphState) -> dict:
+async def summarization_node(state: GraphState) -> Command:
     """Summarize older messages when token count exceeds budget.
 
     Always updates last_message_index to track new messages.
@@ -30,19 +31,30 @@ async def summarization_node(state: GraphState) -> dict:
     Returns:
         Dict with last_message_index updated, and summary if summarization was triggered.
     """
+    logger.info(
+        "Enter Summarization Node",
+        max_tokens=settings.MAX_TOKENS,
+    )
     messages = state.messages
     existing_summary = state.summary
 
     if not messages:
-        return {"last_message_index": 0}
+        return Command(update={"last_message_index": 0}, goto=END)
 
     # Always update last_message_index to track new messages
     new_index = len(messages)
 
     total_tokens = _count_tokens_tiktoken(messages)
 
+    logger.info(
+        "summarization_check",
+        total_tokens=total_tokens,
+        max_tokens=settings.MAX_TOKENS,
+        message_count=len(messages),
+    )
+
     if total_tokens <= settings.MAX_TOKENS:
-        return {"last_message_index": new_index}
+        return Command(update={"last_message_index": new_index}, goto=END)
 
     logger.info(
         "summarization_triggered",
@@ -67,7 +79,7 @@ async def summarization_node(state: GraphState) -> dict:
             summary_input.append(HumanMessage(content=f"{role}: {content}"))
 
     if not summary_input:
-        return {"last_message_index": new_index}
+        return Command(update={"last_message_index": new_index}, goto=END)
 
     try:
         summary_response = await llm_service.call(
@@ -88,8 +100,8 @@ async def summarization_node(state: GraphState) -> dict:
             new_summary_length=len(new_summary),
         )
 
-        return {"summary": new_summary, "last_message_index": new_index}
+        return Command(update={"summary": new_summary, "last_message_index": new_index}, goto=END)
 
     except Exception:
         logger.exception("summarization_failed")
-        return {"last_message_index": new_index}
+        return Command(update={"last_message_index": new_index}, goto=END)

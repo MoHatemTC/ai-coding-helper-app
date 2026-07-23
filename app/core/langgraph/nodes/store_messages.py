@@ -14,9 +14,10 @@ from app.core.logging import logger
 from app.schemas import GraphState
 from app.services.memory import memory_service
 from app.services.message import message_service
+from langgraph.graph.state import Command
 
 
-async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict:
+async def store_messages_node(state: GraphState, config: RunnableConfig) -> Command:
     """Store the current turn's messages to mem0 and messages table.
 
     Runs after the LLM response completes (no more tool calls).
@@ -36,13 +37,13 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
     session_id = metadata.get("session_id")
 
     if not user_id or not session_id or not messages:
-        return {}
+        return Command(update={}, goto="summarization")
 
     # Get new messages from this turn using last_message_index
     new_messages = messages[last_message_index:]
 
     if not new_messages:
-        return {}
+        return Command(update={}, goto="summarization")
 
     logger.info(
         "store_messages_node_triggered",
@@ -72,4 +73,4 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
             )
         )
 
-    return {}
+    return Command(update={}, goto="summarization")
