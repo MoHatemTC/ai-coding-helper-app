@@ -55,10 +55,11 @@ async def chat(
             session_id=session.id,
         )
 
-        if settings.SESSION_NAMING_ENABLED:
-            maybe_name_session(session.id, session.name, [chat_request.message])
-
         user_message = MessageSchema(role="user", content=chat_request.message)
+
+        if settings.SESSION_NAMING_ENABLED:
+            maybe_name_session(session.id, session.name, [user_message])
+
         result = await agent.get_response(
             user_message,
             session.id,

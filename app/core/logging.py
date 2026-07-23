@@ -249,6 +249,11 @@ def setup_logging() -> None:
 # Initialize logging
 setup_logging()
 
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
+logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+
 # Create logger instance
 logger = structlog.get_logger()
 log_level_name = "DEBUG" if settings.DEBUG else "INFO"

@@ -25,6 +25,7 @@ from app.models.session import Session as ChatSession
 from app.schemas.chat import SessionTitle
 from app.services.database import database_service
 from app.services.llm import llm_service
+import os
 
 _PLACEHOLDER_MAX = 40
 
@@ -60,7 +61,7 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
-            model_name="gpt-5.4-nano",
+            model_name=os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant"),
             response_format=SessionTitle,
             reasoning={"effort": "low"},
             max_tokens=32,
