@@ -62,7 +62,7 @@ class ChatRequest(BaseModel):
         language: Optional programming language of the submitted code.
     """
 
-    message: Message = Field(
+    message: str = Field(
         ...,
         description="The user message for this turn",
     )

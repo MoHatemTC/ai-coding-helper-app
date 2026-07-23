@@ -58,7 +58,7 @@ async def chat(
         if settings.SESSION_NAMING_ENABLED:
             maybe_name_session(session.id, session.name, [chat_request.message])
 
-        user_message = MessageSchema(role="user", content=chat_request.message.content)
+        user_message = MessageSchema(role="user", content=chat_request.message)
         result = await agent.get_response(
             user_message,
             session.id,
@@ -96,7 +96,7 @@ async def chat_stream(
         async def event_generator():
             """Generate streaming events."""
             try:
-                user_message = MessageSchema(role="user", content=chat_request.message.content)
+                user_message = MessageSchema(role="user", content=chat_request.message)
                 with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
                     async for chunk in agent.get_stream_response(
                         user_message,
