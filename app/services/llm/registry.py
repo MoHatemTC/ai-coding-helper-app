@@ -12,6 +12,11 @@ from pydantic import SecretStr
 
 from app.core.config import settings
 from app.core.logging import logger
+from dotenv import load_dotenv
+import os
+from langchain_groq import ChatGroq
+
+load_dotenv()
 
 _TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
 _API_KEY = SecretStr(settings.LITELLM_API_KEY)
@@ -27,34 +32,9 @@ class LLMRegistry:
 
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "fw-kimi-k2.6",
-            "llm": ChatOpenAI(
-                model="fw-kimi-k2.6",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                temperature=settings.DEFAULT_LLM_TEMPERATURE,
-                model_kwargs={"max_completion_tokens": 6000},
-                use_responses_api=False,
-            ),
-        },
-        {
-            "name": "kimi-k2.6",
-            "llm": ChatOpenAI(
-                model="kimi-k2.6",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
-            ),
-        },
-        {
-            "name": "kimi-k2.5",
-            "llm": ChatOpenAI(
-                model="kimi-k2.5",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
-            ),
-        },
+            "name": os.environ.get("DEFAULT_LLM_MODEL"),
+            "llm": ChatGroq(model=os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant")),
+        }
     ]
 
     @classmethod

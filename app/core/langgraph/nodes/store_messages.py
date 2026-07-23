@@ -19,16 +19,16 @@ async def store_messages_node(state: GraphState) -> dict:
     """Store the current turn's messages to mem0 and messages table.
 
     Runs after the LLM response completes (no more tool calls).
-    Uses _last_message_index to identify new messages from this turn.
+    Uses last_message_index to identify new messages from this turn.
 
     Args:
-        state: The current graph state containing messages and _last_message_index.
+        state: The current graph state containing messages and last_message_index.
 
     Returns:
         Empty dict — this node doesn't modify state.
     """
     messages = state.messages
-    last_message_index = state._last_message_index
+    last_message_index = state.last_message_index
     metadata = getattr(state, "_metadata", {})
     user_id = metadata.get("user_id")
     session_id = metadata.get("session_id")
@@ -36,7 +36,7 @@ async def store_messages_node(state: GraphState) -> dict:
     if not user_id or not session_id or not messages:
         return {}
 
-    # Get new messages from this turn using _last_message_index
+    # Get new messages from this turn using last_message_index
     new_messages = messages[last_message_index:]
 
     if not new_messages:

@@ -30,6 +30,4 @@ class GraphState(BaseModel):
     language: str | None = Field(default=None, description="The programming language of the submitted code")
 
     summary: str = Field(default="", description="The summary of the conversation so far")
-    _last_message_index: int = Field(
-        default=0, description="Index of the last message processed by summarization node"
-    )
+    last_message_index: int = Field(default=0, description="Index of the last message processed by summarization node")

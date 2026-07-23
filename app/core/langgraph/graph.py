@@ -313,7 +313,7 @@ class LangGraphAgent:
             language (Optional[str]): The programming language of the submitted code.
 
         Returns:
-            list[Message]: The user and assistant messages for this turn.
+            list[Message]: The assistant message for this turn.
         """
         graph = await self._get_graph()
         callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
@@ -336,7 +336,7 @@ class LangGraphAgent:
                 memory_service.search(user_id, message.content),
             )
 
-            # Get existing message count for _last_message_index
+            # Get existing message count for last_message_index
             existing_messages = state.values.get("messages", []) if state.values else []
 
             if state.next:
@@ -353,7 +353,7 @@ class LangGraphAgent:
                         "long_term_memory": relevant_memory,
                         "code": code,
                         "language": language,
-                        "_last_message_index": len(existing_messages),
+                        "last_message_index": len(existing_messages),
                     },
                     config=config,
                 )
@@ -425,7 +425,7 @@ class LangGraphAgent:
                 memory_service.search(user_id, message.content),
             )
 
-            # Get existing message count for _last_message_index
+            # Get existing message count for last_message_index
             existing_messages = state.values.get("messages", []) if state.values else []
 
             if state.next:
@@ -438,7 +438,7 @@ class LangGraphAgent:
                     "long_term_memory": relevant_memory,
                     "code": code,
                     "language": language,
-                    "_last_message_index": len(existing_messages),
+                    "last_message_index": len(existing_messages),
                 }
 
             async for token, _ in graph.astream(

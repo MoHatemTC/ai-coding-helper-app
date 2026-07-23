@@ -21,28 +21,28 @@ Rules:
 async def summarization_node(state: GraphState) -> dict:
     """Summarize older messages when token count exceeds budget.
 
-    Always updates _last_message_index to track new messages.
+    Always updates last_message_index to track new messages.
     Only generates summary if total tokens exceed MAX_TOKENS.
 
     Args:
         state: The current graph state containing messages and summary.
 
     Returns:
-        Dict with _last_message_index updated, and summary if summarization was triggered.
+        Dict with last_message_index updated, and summary if summarization was triggered.
     """
     messages = state.messages
     existing_summary = state.summary
 
     if not messages:
-        return {"_last_message_index": 0}
+        return {"last_message_index": 0}
 
-    # Always update _last_message_index to track new messages
+    # Always update last_message_index to track new messages
     new_index = len(messages)
 
     total_tokens = _count_tokens_tiktoken(messages)
 
     if total_tokens <= settings.MAX_TOKENS:
-        return {"_last_message_index": new_index}
+        return {"last_message_index": new_index}
 
     logger.info(
         "summarization_triggered",
@@ -67,7 +67,7 @@ async def summarization_node(state: GraphState) -> dict:
             summary_input.append(HumanMessage(content=f"{role}: {content}"))
 
     if not summary_input:
-        return {"_last_message_index": new_index}
+        return {"last_message_index": new_index}
 
     try:
         summary_response = await llm_service.call(
@@ -88,8 +88,8 @@ async def summarization_node(state: GraphState) -> dict:
             new_summary_length=len(new_summary),
         )
 
-        return {"summary": new_summary, "_last_message_index": new_index}
+        return {"summary": new_summary, "last_message_index": new_index}
 
     except Exception:
         logger.exception("summarization_failed")
-        return {"_last_message_index": new_index}
+        return {"last_message_index": new_index}
