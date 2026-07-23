@@ -25,12 +25,12 @@ from app.models.session import Session
 from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
+    Message as MessageSchema,
     PaginatedChatResponse,
     StreamResponse,
 )
 from app.services.message import message_service
 from app.services.session_naming import maybe_name_session
-from app.schemas.chat import Message as MessageSchema
 
 
 router = APIRouter()
@@ -46,21 +46,21 @@ async def chat(
 ):
     """Process a chat request using LangGraph.
 
-    Returns only the AI response message from this request.
+    Returns only the user and assistant messages from this request.
     Message storage happens as a graph node after the LLM response.
     """
     try:
         logger.info(
             "chat_request_received",
             session_id=session.id,
-            message_count=len(chat_request.messages),
         )
 
         if settings.SESSION_NAMING_ENABLED:
-            maybe_name_session(session.id, session.name, chat_request.messages)
+            maybe_name_session(session.id, session.name, [chat_request.message])
 
+        user_message = MessageSchema(role="user", content=chat_request.message.content)
         result = await agent.get_response(
-            chat_request.messages,
+            user_message,
             session.id,
             user_id=str(session.user_id),
             username=session.username,
@@ -88,18 +88,18 @@ async def chat_stream(
         logger.info(
             "stream_chat_request_received",
             session_id=session.id,
-            message_count=len(chat_request.messages),
         )
 
         if settings.SESSION_NAMING_ENABLED:
-            maybe_name_session(session.id, session.name, chat_request.messages)
+            maybe_name_session(session.id, session.name, [chat_request.message])
 
         async def event_generator():
             """Generate streaming events."""
             try:
+                user_message = MessageSchema(role="user", content=chat_request.message.content)
                 with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
                     async for chunk in agent.get_stream_response(
-                        chat_request.messages,
+                        user_message,
                         session.id,
                         user_id=str(session.user_id),
                         username=session.username,

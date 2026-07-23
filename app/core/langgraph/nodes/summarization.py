@@ -1,11 +1,10 @@
 """LangGraph node for summarizing older conversation context."""
 
-from typing import Any
-
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.schemas import GraphState
 from app.services.llm import llm_service
 from app.utils.graph import _count_tokens_tiktoken
 
@@ -19,29 +18,31 @@ Rules:
 - Focus on substantive content only"""
 
 
-async def summarization_node(state: dict[str, Any]) -> dict[str, Any]:
+async def summarization_node(state: GraphState) -> dict:
     """Summarize older messages when token count exceeds budget.
 
-    Checks the total token count of messages against MAX_TOKENS.
-    If exceeded, summarizes the oldest messages and stores the result
-    in the 'summary' field of GraphState.
+    Always updates _last_message_index to track new messages.
+    Only generates summary if total tokens exceed MAX_TOKENS.
 
     Args:
         state: The current graph state containing messages and summary.
 
     Returns:
-        Dict with 'summary' field updated if summarization was triggered.
+        Dict with _last_message_index updated, and summary if summarization was triggered.
     """
-    messages = state.get("messages", [])
-    existing_summary = state.get("summary", "")
+    messages = state.messages
+    existing_summary = state.summary
 
     if not messages:
-        return {}
+        return {"_last_message_index": 0}
+
+    # Always update _last_message_index to track new messages
+    new_index = len(messages)
 
     total_tokens = _count_tokens_tiktoken(messages)
 
     if total_tokens <= settings.MAX_TOKENS:
-        return {}
+        return {"_last_message_index": new_index}
 
     logger.info(
         "summarization_triggered",
@@ -66,7 +67,7 @@ async def summarization_node(state: dict[str, Any]) -> dict[str, Any]:
             summary_input.append(HumanMessage(content=f"{role}: {content}"))
 
     if not summary_input:
-        return {}
+        return {"_last_message_index": new_index}
 
     try:
         summary_response = await llm_service.call(
@@ -87,8 +88,8 @@ async def summarization_node(state: dict[str, Any]) -> dict[str, Any]:
             new_summary_length=len(new_summary),
         )
 
-        return {"summary": new_summary}
+        return {"summary": new_summary, "_last_message_index": new_index}
 
     except Exception:
         logger.exception("summarization_failed")
-        return {}
+        return {"_last_message_index": new_index}

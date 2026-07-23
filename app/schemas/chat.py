@@ -57,15 +57,14 @@ class ChatRequest(BaseModel):
     """Request model for chat endpoint.
 
     Attributes:
-        messages: List of messages in the conversation.
+        message: The user message for this turn.
         code: Optional code snippet submitted for review.
         language: Optional programming language of the submitted code.
     """
 
-    messages: List[Message] = Field(
+    message: Message = Field(
         ...,
-        description="List of messages in the conversation",
-        min_length=1,
+        description="The user message for this turn",
     )
     code: str | None = Field(
         default=None,
@@ -103,7 +102,7 @@ class ChatResponse(BaseResponse):
     """Response model for chat endpoint.
 
     Attributes:
-        messages: List of messages returned by this request.
+        messages: List of messages returned by this request (user + assistant).
     """
 
     messages: List[Message] = Field(..., description="List of messages returned by this request")

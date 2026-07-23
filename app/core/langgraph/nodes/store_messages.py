@@ -1,58 +1,73 @@
-"""LangGraph node for storing messages to the messages table."""
+"""LangGraph node for storing messages to mem0 and messages table."""
 
 import asyncio
-from typing import Any
+from typing import cast
+
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+    convert_to_openai_messages,
+)
 
 from app.core.logging import logger
+from app.schemas import GraphState
+from app.services.memory import memory_service
 from app.services.message import message_service
 
 
-async def store_messages_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Store the current turn's messages to the messages table.
+async def store_messages_node(state: GraphState) -> dict:
+    """Store the current turn's messages to mem0 and messages table.
 
-    Runs as a background task after the LLM response and guardrails.
-    Extracts user and assistant messages from the graph state and
-    batch-stores them to the messages table.
+    Runs after the LLM response completes (no more tool calls).
+    Uses _last_message_index to identify new messages from this turn.
 
     Args:
-        state: The current graph state containing messages.
+        state: The current graph state containing messages and _last_message_index.
 
     Returns:
         Empty dict — this node doesn't modify state.
     """
-    messages = state.get("messages", [])
-    metadata = state.get("_metadata", {})
+    messages = state.messages
+    last_message_index = state._last_message_index
+    metadata = getattr(state, "_metadata", {})
     user_id = metadata.get("user_id")
     session_id = metadata.get("session_id")
 
     if not user_id or not session_id or not messages:
         return {}
 
-    storage_messages = []
-    for msg in messages:
-        role = getattr(msg, "type", None) or msg.get("role", "") if isinstance(msg, dict) else ""
-        content = getattr(msg, "content", None) or msg.get("content", "") if isinstance(msg, dict) else ""
+    # Get new messages from this turn using _last_message_index
+    new_messages = messages[last_message_index:]
 
-        if not content:
-            continue
-
-        storage_messages.append({"role": role, "content": str(content)})
-
-    if not storage_messages:
+    if not new_messages:
         return {}
 
     logger.info(
         "store_messages_node_triggered",
         session_id=session_id,
-        message_count=len(storage_messages),
+        message_count=len(new_messages),
+        last_message_index=last_message_index,
     )
 
-    asyncio.create_task(
-        message_service.store_messages(
-            user_id=int(user_id),
-            session_id=session_id,
-            messages=storage_messages,
+    # Store ALL new messages to mem0 (including tool messages for context)
+    openai_msgs = cast(list[dict], convert_to_openai_messages(new_messages))
+    asyncio.create_task(memory_service.add(user_id, openai_msgs, metadata))
+
+    # Store only user/assistant messages to SQL (for conversation history)
+    sql_messages = []
+    for msg in new_messages:
+        if isinstance(msg, HumanMessage) and msg.content:
+            sql_messages.append({"role": "user", "content": str(msg.content)})
+        elif isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+            sql_messages.append({"role": "assistant", "content": str(msg.content)})
+
+    if sql_messages:
+        asyncio.create_task(
+            message_service.store_messages(
+                user_id=int(user_id),
+                session_id=session_id,
+                messages=sql_messages,
+            )
         )
-    )
 
     return {}
