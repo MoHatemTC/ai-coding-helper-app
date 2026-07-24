@@ -11,9 +11,6 @@ Help the user with their questions.
 # What you know about the user
 {long_term_memory}
 
-# User Skill Profile
-{skill_profile}
-
 # Conversation Summary
 {summary}
 
