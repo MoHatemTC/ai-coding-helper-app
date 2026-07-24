@@ -43,6 +43,7 @@ class MemoryService:
                         "config": {
                             "model": "llama-3.1-8b-instant",
                             "api_key": os.getenv("GROQ_API_KEY"),
+                            "max_tokens": 200,
                         },
                     },
                     "embedder": {
@@ -82,7 +83,7 @@ class MemoryService:
                 return cached
 
             memory = await self._get_memory()
-            results = await memory.search(user_id=str(user_id), query=query)
+            results = await memory.search(user_id=str(user_id), query=query, limit=5)
             result = "\n".join([f"* {r['memory']}" for r in results["results"]])
 
             # Cache successful results
