@@ -8,15 +8,12 @@ Run:  pytest tests/smoke/ -v --server-url=http://localhost:8000
 
 from __future__ import annotations
 
-import os
-from typing import Any, Generator
+from typing import Generator
 
 import pytest
 import requests
 
 from tests.smoke.conftest import (
-    get_api_base,
-    SmokeTestError,
     random_email,
     strong_password,
     smoke_log,
@@ -33,9 +30,7 @@ def test_register_user_returns_201(api_base: str) -> None:
     payload = {"email": random_email(), "password": strong_password()}
     resp = requests.post(f"{api_base}/auth/register", json=payload, timeout=10)
     smoke_log("register_response", status=resp.status_code)
-    assert resp.status_code == 201 or resp.status_code == 200, (
-        f"Expected 200/201, got {resp.status_code}: {resp.text}"
-    )
+    assert resp.status_code == 201 or resp.status_code == 200, f"Expected 200/201, got {resp.status_code}: {resp.text}"
     data = resp.json()
     assert "id" in data, "Missing 'id' in register response"
     assert "token" in data, "Missing 'token' in register response"
@@ -176,9 +171,7 @@ def test_list_sessions_returns_user_sessions(user_token: str, api_base: str) -> 
 def test_missing_token_returns_401(api_base: str) -> None:
     """Endpoints requiring auth return 401 when no token is provided."""
     resp = requests.get(f"{api_base}/auth/sessions", timeout=10)
-    assert resp.status_code == 401 or resp.status_code == 403, (
-        f"Expected 401/403, got {resp.status_code}: {resp.text}"
-    )
+    assert resp.status_code == 401 or resp.status_code == 403, f"Expected 401/403, got {resp.status_code}: {resp.text}"
     smoke_log("missing_token_rejected")
 
 

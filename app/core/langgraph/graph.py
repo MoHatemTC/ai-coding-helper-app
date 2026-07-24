@@ -49,7 +49,7 @@ from app.core.config import (
 from app.core.langgraph.tools import tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import get_langfuse_callback_handler
 from app.core.prompts import load_system_prompt
 from app.schemas import (
     GraphState,
@@ -128,7 +128,7 @@ class LangGraphAgent:
                 raise e
         return self._connection_pool
 
-    @observe()  # type: ignore[arg-type]
+    @observe(name="langgraph.chat")  # type: ignore[arg-type]
     async def _chat(self, state: GraphState, config: RunnableConfig) -> Command:
         """Process the chat state and generate a response.
 
@@ -200,7 +200,7 @@ class LangGraphAgent:
             raise Exception(f"failed to get llm response after trying all models: {str(e)}")
 
     # Define our tool node
-    @observe()  # type: ignore[arg-type]
+    @observe(name="langgraph.tool_call")  # type: ignore[arg-type]
     async def _tool_call(self, state: GraphState) -> Command:
         """Process tool calls from the last message.
 
@@ -315,7 +315,9 @@ class LangGraphAgent:
             list[Message]: The response from the LLM.
         """
         graph = await self._get_graph()
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = (
+            [get_langfuse_callback_handler()] if settings.LANGFUSE_TRACING_ENABLED else []
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,
@@ -396,7 +398,9 @@ class LangGraphAgent:
         Yields:
             str: Tokens of the LLM response.
         """
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = (
+            [get_langfuse_callback_handler()] if settings.LANGFUSE_TRACING_ENABLED else []
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,

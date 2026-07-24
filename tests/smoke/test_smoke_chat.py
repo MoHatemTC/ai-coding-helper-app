@@ -9,12 +9,12 @@ These tests verify the core chat flow against a live server:
 
 from __future__ import annotations
 
-from typing import Any, Generator
+from typing import Generator
 
 import pytest
 import requests
 
-from tests.smoke.conftest import get_api_base, random_email, smoke_log, strong_password
+from tests.smoke.conftest import random_email, smoke_log, strong_password
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ def session_token(api_base: str) -> Generator[str, None, None]:
 
 
 # ---------------------------------------------------------------------------
-# Chat (non-streaming)
+# Chat non-streaming
 # ---------------------------------------------------------------------------
 
 
@@ -67,9 +67,7 @@ def test_chat_basic_message(session_token: str, api_base: str) -> None:
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
     data = resp.json()
     assert "messages" in data, "Missing 'messages' in chat response"
-    assert len(data["messages"]) >= 2, (
-        f"Expected at least 2 messages (user + assistant), got {len(data['messages'])}"
-    )
+    assert len(data["messages"]) >= 2, f"Expected at least 2 messages (user + assistant), got {len(data['messages'])}"
     # Last message should be from the assistant
     last_msg = data["messages"][-1]
     assert last_msg["role"] == "assistant"
@@ -191,9 +189,7 @@ def test_get_messages_returns_history(session_token: str, api_base: str) -> None
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
     data = resp.json()
     assert "messages" in data
-    assert len(data["messages"]) >= 2, (
-        f"Expected at least 2 messages in history, got {len(data['messages'])}"
-    )
+    assert len(data["messages"]) >= 2, f"Expected at least 2 messages in history, got {len(data['messages'])}"
     smoke_log("messages_retrieved", message_count=len(data["messages"]))
 
 

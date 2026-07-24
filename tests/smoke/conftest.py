@@ -24,6 +24,7 @@ def api_base(pytestconfig: pytest.Config) -> str:
     """Return the API base URL."""
     return get_api_base(pytestconfig)
 
+
 def get_api_base(config: pytest.Config | None = None) -> str:
     """Return the ``/api/v1`` base URL from the CLI option or env var.
 
