@@ -1,5 +1,6 @@
 """Inbound intent guardrail that evaluates sanitized user requests."""
 
+import asyncio
 from typing import Any
 
 import structlog
@@ -12,13 +13,19 @@ from app.services.llm import llm_service
 logger: Any = structlog.get_logger(__name__)
 
 
-async def _invoke_intent_judge(client: Any, messages: list[SystemMessage | HumanMessage]) -> InboundIntentJudgeOutput:
+async def _invoke_intent_judge(client: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 2.5) -> InboundIntentJudgeOutput:
     """Invoke one client and validate its structured intent decision."""
     if hasattr(client, "call"):
-        response: Any = await client.call(messages, response_format=InboundIntentJudgeOutput)
+        response: Any = await asyncio.wait_for(
+            client.call(messages, response_format=InboundIntentJudgeOutput),
+            timeout=timeout,
+        )
     else:
         structured_client: Any = client.with_structured_output(InboundIntentJudgeOutput)
-        response = await structured_client.ainvoke(messages)
+        response = await asyncio.wait_for(
+            structured_client.ainvoke(messages),
+            timeout=timeout,
+        )
     return (
         response
         if isinstance(response, InboundIntentJudgeOutput)
@@ -47,24 +54,26 @@ async def inbound_intent_node(
     problem_id = state.get("problem_id")
 
     try:
-        decision = await _invoke_intent_judge(primary, messages)
+        decision = await _invoke_intent_judge(primary, messages, timeout=2.5)
         logger.info("inbound_intent_primary_completed", problem_id=problem_id, is_safe_intent=decision.is_safe_intent)
-    except Exception as primary_error:
+    except (asyncio.TimeoutError, Exception) as primary_error:
+        error_type = "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
         logger.warning(
             "inbound_intent_primary_failed_using_fallback",
             problem_id=problem_id,
-            error_type=type(primary_error).__name__,
+            error_type=error_type,
         )
         try:
-            decision = await _invoke_intent_judge(fallback, messages)
+            decision = await _invoke_intent_judge(fallback, messages, timeout=1.5)
             logger.info(
                 "inbound_intent_fallback_completed", problem_id=problem_id, is_safe_intent=decision.is_safe_intent
             )
-        except Exception as fallback_error:
+        except (asyncio.TimeoutError, Exception) as fallback_error:
+            error_type = "TimeoutError" if isinstance(fallback_error, asyncio.TimeoutError) else type(fallback_error).__name__
             logger.exception(
                 "inbound_intent_fallback_failed_closed",
                 problem_id=problem_id,
-                error_type=type(fallback_error).__name__,
+                error_type=error_type,
             )
             return {
                 "is_safe_intent": False,
