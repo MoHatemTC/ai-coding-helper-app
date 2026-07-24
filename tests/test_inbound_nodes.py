@@ -1,5 +1,6 @@
 """Async tests for sequential inbound DLP and intent guardrails."""
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -47,6 +48,19 @@ class MockFailingJudgeClient:
     async def ainvoke(self, _messages: Any) -> InboundIntentJudgeOutput:
         """Raise an error so the node exercises its fallback client."""
         raise RuntimeError("intent judge unavailable")
+
+
+class MockTimeoutJudgeClient:
+    """A structured LLM mock that hangs to trigger a timeout."""
+
+    def with_structured_output(self, _schema: type[InboundIntentJudgeOutput]) -> "MockTimeoutJudgeClient":
+        """Return this mock as a structured-output runnable."""
+        return self
+
+    async def ainvoke(self, _messages: Any) -> InboundIntentJudgeOutput:
+        """Sleep longer than the timeout budget."""
+        await asyncio.sleep(5.0)
+        return InboundIntentJudgeOutput(is_safe_intent=True)
 
 
 class MockOffTopicJudgeClient:
@@ -117,6 +131,22 @@ async def test_dlp_python_identifiers_do_not_trigger_entropy() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dlp_flags_long_high_entropy_secret_without_dashes() -> None:
+    """Flag a 20+ char hex string exceeding whitelist length cap."""
+    result = await run_pipeline(
+        {
+            "user_query": "Can you review this code?",
+            "code": 'secret_key = "a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4"',
+        },
+        MockSuccessJudgeClient(),
+        MockSuccessJudgeClient(),
+    )
+
+    assert result["is_safe_sensitive"] is False
+    assert "high_entropy_token" in result["detected_secret_types"]
+
+
+@pytest.mark.asyncio
 async def test_dlp_blocks_and_redacts_api_key() -> None:
     """Block and redact a real hardcoded API key."""
     result = await run_pipeline(
@@ -170,6 +200,18 @@ async def test_intent_uses_fallback_client_on_primary_failure() -> None:
 
 
 @pytest.mark.asyncio
+async def test_intent_uses_fallback_client_on_primary_timeout() -> None:
+    """Allow the request when primary times out but fallback evaluator succeeds."""
+    result = await run_pipeline(
+        {"user_query": "Please explain this loop."},
+        MockTimeoutJudgeClient(),
+        MockSuccessJudgeClient(),
+    )
+
+    assert result["is_safe_intent"] is True
+
+
+@pytest.mark.asyncio
 async def test_intent_fails_closed_when_both_clients_fail() -> None:
     """Block the request when neither intent evaluator is available."""
     result = await run_pipeline(
@@ -180,3 +222,17 @@ async def test_intent_fails_closed_when_both_clients_fail() -> None:
 
     assert result["is_safe_intent"] is False
     assert result["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
+
+
+@pytest.mark.asyncio
+async def test_intent_fails_closed_when_both_clients_timeout() -> None:
+    """Block the request when both intent evaluators time out."""
+    result = await run_pipeline(
+        {"user_query": "Please explain this loop."},
+        MockTimeoutJudgeClient(),
+        MockTimeoutJudgeClient(),
+    )
+
+    assert result["is_safe_intent"] is False
+    assert result["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
+

@@ -1,5 +1,6 @@
 """Outbound guardrail that evaluates assistant responses before delivery."""
 
+import asyncio
 from typing import Any
 
 import structlog
@@ -18,14 +19,20 @@ SAFE_TIMEOUT_RESPONSE = (
 
 
 async def _invoke_outbound_judge(
-    client: Any, messages: list[SystemMessage | HumanMessage]
+    client: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 2.5
 ) -> OutboundJudgeOutput:
     """Invoke one client and validate its structured outbound decision."""
     if hasattr(client, "call"):
-        response: Any = await client.call(messages, response_format=OutboundJudgeOutput)
+        response: Any = await asyncio.wait_for(
+            client.call(messages, response_format=OutboundJudgeOutput),
+            timeout=timeout,
+        )
     else:
         structured_client: Any = client.with_structured_output(OutboundJudgeOutput)
-        response = await structured_client.ainvoke(messages)
+        response = await asyncio.wait_for(
+            structured_client.ainvoke(messages),
+            timeout=timeout,
+        )
     return response if isinstance(response, OutboundJudgeOutput) else OutboundJudgeOutput.model_validate(response)
 
 
@@ -52,32 +59,34 @@ async def outbound_node(
     problem_id = state.get("problem_id")
 
     try:
-        decision = await _invoke_outbound_judge(primary, messages)
+        decision = await _invoke_outbound_judge(primary, messages, timeout=2.5)
         logger.info(
             "outbound_primary_completed",
             problem_id=problem_id,
             is_safe_output=decision.is_safe_output,
             outbound_trigger_reason=decision.outbound_trigger_reason,
         )
-    except Exception as primary_error:
+    except (asyncio.TimeoutError, Exception) as primary_error:
+        error_type = "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
         logger.warning(
             "outbound_primary_failed_using_fallback",
             problem_id=problem_id,
-            error_type=type(primary_error).__name__,
+            error_type=error_type,
         )
         try:
-            decision = await _invoke_outbound_judge(fallback, messages)
+            decision = await _invoke_outbound_judge(fallback, messages, timeout=1.5)
             logger.info(
                 "outbound_fallback_completed",
                 problem_id=problem_id,
                 is_safe_output=decision.is_safe_output,
                 outbound_trigger_reason=decision.outbound_trigger_reason,
             )
-        except Exception as fallback_error:
+        except (asyncio.TimeoutError, Exception) as fallback_error:
+            error_type = "TimeoutError" if isinstance(fallback_error, asyncio.TimeoutError) else type(fallback_error).__name__
             logger.exception(
                 "outbound_fallback_failed_closed",
                 problem_id=problem_id,
-                error_type=type(fallback_error).__name__,
+                error_type=error_type,
             )
             return {
                 "is_safe_output": False,
