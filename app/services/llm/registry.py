@@ -11,7 +11,6 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from app.core.config import (
-    Environment,
     settings,
 )
 from app.core.logging import logger
@@ -30,29 +29,28 @@ class LLMRegistry:
 
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "fw-kimi-k2.6",
+            "name": "gpt-oss-120b",
             "llm": ChatOpenAI(
-                model="fw-kimi-k2.6",
+                model="gpt-oss-120b",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
-                model_kwargs={"max_completion_tokens": 6000},
-                use_responses_api=False,
+                model_kwargs=_TOKEN_LIMIT,
             ),
         },
         {
-            "name": "kimi-k2.6",
+            "name": "gemma-4-31b",
             "llm": ChatOpenAI(
-                model="kimi-k2.6",
+                model="gemma-4-31b",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
             ),
         },
         {
-            "name": "kimi-k2.5",
+            "name": "zai-glm-4.7",
             "llm": ChatOpenAI(
-                model="kimi-k2.5",
+                model="zai-glm-4.7",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,

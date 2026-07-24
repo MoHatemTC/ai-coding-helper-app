@@ -18,6 +18,7 @@ from sqlmodel import (
     update,
 )
 
+from app.core.config import settings
 from app.core.logging import logger
 from app.core.metrics import session_names_generated_total
 from app.core.prompts import SESSION_TITLE_PROMPT
@@ -60,7 +61,7 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
-            model_name="kimi-k2.5",
+            model_name=settings.DEFAULT_LLM_MODEL,
             response_format=SessionTitle,
             reasoning={"effort": "low"},
             max_tokens=32,
