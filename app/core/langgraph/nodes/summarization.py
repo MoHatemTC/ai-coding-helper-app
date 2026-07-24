@@ -53,7 +53,7 @@ async def summarization_node(state: GraphState) -> Command:
         message_count=len(messages),
     )
 
-    if total_tokens <= settings.MAX_TOKENS:
+    if total_tokens <= settings.MAX_TOKENS and total_tokens <= 0.4 * settings.MODEL_MAX_CONTEXT_WINDOW:
         return Command(update={"last_message_index": new_index}, goto=END)
 
     logger.info(
