@@ -42,7 +42,7 @@ _UUID_PATTERN = re.compile(
 )
 _GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
 _DATA_URI_PATTERN = re.compile(r"data:[^\s,;]+(?:;[^\s,;]+)*;base64,[A-Za-z0-9+/=]+", re.IGNORECASE)
-_PYTHON_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_PYTHON_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,23}$")
 _ENTROPY_THRESHOLD = 3.5
 
 
