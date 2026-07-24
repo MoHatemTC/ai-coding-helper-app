@@ -1,7 +1,10 @@
 """Async offline tests for the outbound response guardrail."""
 
+import asyncio
 from typing import Any
+
 import pytest
+
 from app.core.langgraph.nodes.outbound import SAFE_TIMEOUT_RESPONSE, outbound_node
 from app.schemas.review import OutboundJudgeOutput, OutboundTriggerReason
 
@@ -46,6 +49,19 @@ class MockFailingJudgeClient:
         raise RuntimeError("outbound judge unavailable")
 
 
+class MockTimeoutJudgeClient:
+    """A structured LLM mock that hangs to trigger a timeout."""
+
+    def with_structured_output(self, _schema: type[OutboundJudgeOutput]) -> "MockTimeoutJudgeClient":
+        """Return this mock as a structured-output runnable."""
+        return self
+
+    async def ainvoke(self, _messages: Any) -> OutboundJudgeOutput:
+        """Sleep longer than the timeout budget."""
+        await asyncio.sleep(5.0)
+        return OutboundJudgeOutput(is_safe_output=True)
+
+
 @pytest.mark.asyncio
 async def test_outbound_allows_conceptual_hint() -> None:
     """Allow conceptual guidance and deliver the original draft."""
@@ -87,6 +103,18 @@ async def test_outbound_uses_fallback_client_on_primary_failure() -> None:
 
 
 @pytest.mark.asyncio
+async def test_outbound_uses_fallback_client_on_primary_timeout() -> None:
+    """Allow the response when primary times out but fallback evaluator succeeds."""
+    result = await outbound_node(
+        {"draft_response": "Try tracing the values after each iteration."},
+        MockTimeoutJudgeClient(),
+        MockSuccessJudgeClient(),
+    )
+
+    assert result["is_safe_output"] is True
+
+
+@pytest.mark.asyncio
 async def test_outbound_fails_closed_when_both_clients_fail() -> None:
     """Block the response when neither outbound evaluator is available."""
     result = await outbound_node(
@@ -98,3 +126,18 @@ async def test_outbound_fails_closed_when_both_clients_fail() -> None:
     assert result["is_safe_output"] is False
     assert result["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
     assert result["final_response"] == SAFE_TIMEOUT_RESPONSE
+
+
+@pytest.mark.asyncio
+async def test_outbound_fails_closed_when_both_clients_timeout() -> None:
+    """Block the response when both outbound evaluators time out."""
+    result = await outbound_node(
+        {"draft_response": "Try tracing the values after each iteration."},
+        MockTimeoutJudgeClient(),
+        MockTimeoutJudgeClient(),
+    )
+
+    assert result["is_safe_output"] is False
+    assert result["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
+    assert result["final_response"] == SAFE_TIMEOUT_RESPONSE
+
