@@ -17,9 +17,7 @@ SAFE_TIMEOUT_RESPONSE = (
 )
 
 
-async def _invoke_outbound_judge(
-    client: Any, messages: list[SystemMessage | HumanMessage]
-) -> OutboundJudgeOutput:
+async def _invoke_outbound_judge(client: Any, messages: list[SystemMessage | HumanMessage]) -> OutboundJudgeOutput:
     """Invoke one client and validate its structured outbound decision."""
     if hasattr(client, "call"):
         response: Any = await client.call(messages, response_format=OutboundJudgeOutput)

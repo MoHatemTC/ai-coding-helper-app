@@ -1,8 +1,9 @@
-"""Standalone baseline test using the LiteLLM/Kimi credentials directly
-through llm_service (i.e. through registry.py), bypassing pytest.
+"""Standalone baseline test using LiteLLM/Kimi credentials directly.
+
+The test uses llm_service through registry.py and bypasses pytest.
 
 This is the quickest way to confirm the FW-Kimi-K2.6 registry entry
-actually works end-to-end, before running the full test suite.
+works end-to-end before running the full test suite.
 
 Setup (in your .env, repo root):
     OPENAI_API_KEY=sk-...
