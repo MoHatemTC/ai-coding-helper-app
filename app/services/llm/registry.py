@@ -29,28 +29,20 @@ class LLMRegistry:
 
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "gpt-oss-120b",
+            "name": "fw-kimi-k2.6",
             "llm": ChatOpenAI(
-                model="gpt-oss-120b",
+                model="fw-kimi-k2.6",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
-                model_kwargs=_TOKEN_LIMIT,
+                model_kwargs={"max_completion_tokens": 6000},
+                use_responses_api=False,
             ),
         },
         {
-            "name": "gemma-4-31b",
+            "name": "kimi-k2.6",
             "llm": ChatOpenAI(
-                model="gemma-4-31b",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
-            ),
-        },
-        {
-            "name": "zai-glm-4.7",
-            "llm": ChatOpenAI(
-                model="zai-glm-4.7",
+                model="kimi-k2.6",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
