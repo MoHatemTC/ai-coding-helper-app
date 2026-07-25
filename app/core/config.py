@@ -148,8 +148,6 @@ class Settings:
         # LangGraph Configuration
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
         self.OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
-        self.LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm")
         self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "kimi-k2.5")
         self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "kimi-k2.5")
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"

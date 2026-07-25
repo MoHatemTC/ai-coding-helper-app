@@ -16,8 +16,8 @@ from app.core.config import (
 from app.core.logging import logger
 
 _TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
-_API_KEY = SecretStr(settings.LITELLM_API_KEY)
-_BASE_URL = settings.LITELLM_BASE_URL
+_API_KEY = SecretStr(settings.OPENAI_API_KEY)
+_BASE_URL = settings.OPENAI_BASE_URL
 
 
 class LLMRegistry:
