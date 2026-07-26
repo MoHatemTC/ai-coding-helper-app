@@ -10,15 +10,12 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-from app.core.config import (
-    Environment,
-    settings,
-)
+from app.core.config import settings
 from app.core.logging import logger
 
 _TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
-_API_KEY = SecretStr(settings.OPENAI_API_KEY)
-_BASE_URL = settings.OPENAI_BASE_URL
+_API_KEY = SecretStr(settings.LITELLM_API_KEY)
+_BASE_URL = settings.LITELLM_BASE_URL
 
 
 class LLMRegistry:
@@ -28,57 +25,36 @@ class LLMRegistry:
     methods to retrieve them by name with optional argument overrides.
     """
 
+    # NOTE (22 Jul): entry "name" is a stable lookup key referenced elsewhere
+    # (settings.DEFAULT_LLM_MODEL == "fw-kimi-k2.6"); it intentionally no
+    # longer matches its own "model" string below -- see the 22 Jul comment
+    # on that entry. Do not rename "fw-kimi-k2.6" without also updating
+    # DEFAULT_LLM_MODEL in app/core/config.py.
+    #
+    # A third entry (name="kimi-k2.5", model="kimi-k2.5") was removed here:
+    # it was a byte-for-byte duplicate of the entry below once "fw-kimi-k2.6"
+    # was repointed at the same underlying "kimi-k2.5" model, so it added a
+    # fallback *slot* without adding a fallback *model* -- the circular
+    # fallback loop would have retried the same already-failed model twice.
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "FW-Kimi-K2.6",
+            "name": "fw-kimi-k2.6",
             "llm": ChatOpenAI(
-                model="gpt-oss-120b",
+                model="kimi-k2.5",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
-                model_kwargs=_TOKEN_LIMIT,
+                model_kwargs={"max_completion_tokens": 6000},
+                use_responses_api=False,
             ),
         },
         {
-            "name": "gpt-5-mini",
+            "name": "kimi-k2.6",
             "llm": ChatOpenAI(
-                model="gpt-5-mini",
+                model="kimi-k2.6",
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
-                reasoning={"effort": "low"},
-            ),
-        },
-        {
-            "name": "gpt-5.4",
-            "llm": ChatOpenAI(
-                model="gpt-5",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
-                reasoning={"effort": "medium"},
-            ),
-        },
-        {
-            "name": "gpt-5.4-nano",
-            "llm": ChatOpenAI(
-                model="gpt-5.4-nano",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
-                reasoning={"effort": "low"},
-            ),
-        },
-        {
-            "name": "gpt-5",
-            "llm": ChatOpenAI(
-                model="gpt-5",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
-                top_p=0.95 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.8,
-                presence_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,
-                frequency_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,
             ),
         },
     ]
