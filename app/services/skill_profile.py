@@ -127,11 +127,21 @@ class SkillProfileService:
 
     # ── Rendering for system-prompt injection (not markdown — plain grouped text) ──
 
-    def render_for_prompt(self, user_id: int) -> str:
-        """Build the compact string injected into the mentor's system prompt."""
+    def render_for_prompt(self, user_id: int, max_entries: int = 50) -> str:
+        """Build the compact string injected into the mentor's system prompt.
+
+        Args:
+            user_id: The user whose profile to render.
+            max_entries: Cap on total entries to prevent unbounded system prompt growth.
+                         Entries beyond the cap are silently dropped (lowest evidence first).
+        """
         entries = self.load_entries(user_id)
         if not entries:
             return "No skill profile recorded yet."
+
+        # Soft cap: if over limit, drop lowest-evidence entries
+        if len(entries) > max_entries:
+            entries = sorted(entries, key=lambda e: -e.evidence_count)[:max_entries]
 
         by_category: dict[SkillCategory, list[SkillProfileEntry]] = {}
         for entry in entries:
@@ -148,13 +158,17 @@ class SkillProfileService:
                 lines.append(f"- {e.skill}{prof}: {e.detail}")
         return "\n".join(lines)
 
+    async def render_for_prompt_async(self, user_id: int) -> str:
+        """Async wrapper — calls render_for_prompt in a thread so it doesn't block the event loop."""
+        return await asyncio.to_thread(self.render_for_prompt, user_id)
+
     # ── ACE pipeline (2 phases) ──────────────────────────────────────
 
     async def propose_delta(self, user_id: int, conversation: str) -> ProfileDelta:
         """Single structured-output LLM call — generation + reflection merged."""
         existing_text = await asyncio.to_thread(self.render_for_prompt, user_id)
 
-        llm = LLMRegistry.get(settings.DEFAULT_LLM_MODEL, temperature=0.1, max_tokens=800)
+        llm = LLMRegistry.get(settings.SKILL_PROFILE_MODEL, temperature=0.1, max_tokens=800)
         structured_llm = llm.with_structured_output(ProfileDelta)
 
         try:
