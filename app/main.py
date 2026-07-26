@@ -1,5 +1,6 @@
 """This file contains the main application entry point."""
 
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -32,6 +33,7 @@ from app.core.middleware import (
 from app.core.observability import langfuse_init
 from app.services.database import database_service
 from app.services.memory import memory_service
+from app.services.checkpoint_cleanup import run_checkpoint_cleanup
 
 # Load environment variables
 load_dotenv()
@@ -69,9 +71,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("memory_service_pre_warm_failed", error=str(e))
 
+    # Start checkpoint cleanup background task
+    checkpoint_cleanup_task = asyncio.create_task(run_checkpoint_cleanup())
+    logger.info("checkpoint_cleanup_started", ttl_days=settings.CHECKPOINT_TTL_DAYS)
+
     yield
 
     # Cleanup on shutdown
+    checkpoint_cleanup_task.cancel()
     await cache_service.close()
     if agent._connection_pool:
         await agent._connection_pool.close()
