@@ -14,7 +14,6 @@ from app.core.logging import logger
 from app.schemas import GraphState
 from app.services.memory import memory_service
 from app.services.message import message_service
-from app.services.skill_profile import skill_profile_service
 from langgraph.graph.state import Command
 
 
@@ -73,12 +72,5 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> Comm
                 messages=sql_messages,
             )
         )
-
-    # Schedule skill profile update after 30-minute silence
-    conversation_text = "\n".join(
-        f"{m.get('role', 'unknown')}: {m.get('content', '')}" for m in openai_msgs if m.get("content")
-    )
-    if conversation_text.strip():
-        skill_profile_service.schedule_update(int(user_id), conversation_text)
 
     return Command(update={}, goto="summarization")

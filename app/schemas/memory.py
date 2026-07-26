@@ -1,4 +1,4 @@
-"""Schemas for long-term memory consolidation."""
+"""Schemas for long-term memory consolidation and skill profile pipeline."""
 
 from pydantic import BaseModel, Field
 

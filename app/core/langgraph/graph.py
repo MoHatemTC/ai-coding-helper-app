@@ -58,7 +58,6 @@ from app.schemas import (
 )
 from app.services.llm import llm_service
 from app.services.memory import memory_service
-from app.services.skill_profile import skill_profile_service
 from app.utils import (
     dump_messages,
     extract_text_content,
@@ -332,16 +331,9 @@ class LangGraphAgent:
         }
 
         try:
-            # Run state check, memory search, and skill profile load concurrently
-            async def _load_skill_profile() -> str:
-                if user_id:
-                    return await asyncio.to_thread(skill_profile_service.load, int(user_id))
-                return ""
-
-            state, relevant_memory, skill_profile = await asyncio.gather(
+            state, relevant_memory = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, message.content),
-                _load_skill_profile(),
             )
 
             # Get existing message count for last_message_index
@@ -355,12 +347,10 @@ class LangGraphAgent:
                 )
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
-                skill_profile = skill_profile or ""
                 response = await graph.ainvoke(
                     input={
                         "messages": [message.model_dump()],
                         "long_term_memory": relevant_memory,
-                        "skill_profile": skill_profile,
                         "code": code,
                         "language": language,
                         "last_message_index": len(existing_messages),
@@ -430,15 +420,10 @@ class LangGraphAgent:
 
         try:
             # Run state check, memory search, and skill profile load concurrently
-            async def _load_skill_profile() -> str:
-                if user_id:
-                    return await asyncio.to_thread(skill_profile_service.load, int(user_id))
-                return ""
 
-            state, relevant_memory, skill_profile = await asyncio.gather(
+            state, relevant_memory = await asyncio.gather(
                 graph.aget_state(config),
                 memory_service.search(user_id, message.content),
-                _load_skill_profile(),
             )
 
             # Get existing message count for last_message_index
@@ -449,11 +434,9 @@ class LangGraphAgent:
                 graph_input = Command(resume=message.content)
             else:
                 relevant_memory = relevant_memory or "No relevant memory found."
-                skill_profile = skill_profile or ""
                 graph_input = {
                     "messages": [message.model_dump()],
                     "long_term_memory": relevant_memory,
-                    "skill_profile": skill_profile,
                     "code": code,
                     "language": language,
                     "last_message_index": len(existing_messages),

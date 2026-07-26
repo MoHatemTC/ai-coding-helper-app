@@ -1,19 +1,30 @@
-"""Skill profile model — one .md file per user."""
+"""DB model for structured skill profile rows — one row per (user, skill, category)."""
 
-from sqlmodel import Column, Field, Text
-
-from app.models.base import BaseModel
+from datetime import datetime, timezone
 
 
-class SkillProfile(BaseModel, table=True):
-    """Stores a markdown skill profile per user, updated by the ACE pipeline."""
+from sqlmodel import Field, SQLModel
 
-    user_id: int = Field(foreign_key="user.id", primary_key=True)
-    content: str = Field(
-        default="",
-        sa_column=Column(Text, nullable=False, server_default=""),
-    )
-    updated_at: str | None = Field(
-        default=None,
-        sa_column=Column(Text, nullable=True),
-    )
+from app.schemas.skill_profile import ProficiencyLevel, SkillCategory
+
+
+class SkillProfileEntry(SQLModel, table=True):
+    """One skill assessment for one user.
+
+    `skill_key` is the normalized (lowercased, stripped) match key — it's what
+    upsert/remove match against, so casing drift from the LLM ("python" vs
+    "Python") never creates duplicate rows. `skill` keeps the display casing.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True)
+
+    skill: str
+    skill_key: str = Field(index=True)
+    category: SkillCategory
+    proficiency: ProficiencyLevel | None = None
+    detail: str
+
+    evidence_count: int = Field(default=1)  # times this entry was upserted/reinforced
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
