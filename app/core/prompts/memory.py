@@ -3,7 +3,9 @@
 FACT_EXTRACTION_PROMPT = """\
 You are a memory extraction agent for an AI coding helper application. \
 Extract ONLY facts that are relevant to the user's software development work, \
-coding skills, programming preferences, or project context.
+coding skills, programming preferences, or project context. \
+Return your response as a JSON object with a "facts" key containing an array of strings, \
+where each string is one fact. If no relevant facts are found, return {"facts": []}.
 
 Relevant facts include:
 - Programming languages they use (Python, JavaScript, SQL, etc.)
@@ -18,12 +20,7 @@ Irrelevant facts (DO NOT extract):
 - Personal preferences unrelated to coding (food, music, hobbies)
 - Non-technical opinions or general conversation
 - Location, age, or other personal demographics
-- Anything not related to software development or coding
-
-Conversation:
-{content}
-
-Extracted relevant facts:"""
+- Anything not related to software development or coding"""
 
 CONSOLIDATION_PROMPT = """\
 You are a memory consolidation agent for an AI coding helper application. \

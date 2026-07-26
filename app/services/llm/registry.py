@@ -7,19 +7,12 @@ from typing import (
 )
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from pydantic import SecretStr
 
-from app.core.config import settings
 from app.core.logging import logger
 from dotenv import load_dotenv
-import os
 from langchain_groq import ChatGroq
 
 load_dotenv()
-
-_TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
-_API_KEY = SecretStr(settings.LITELLM_API_KEY)
-_BASE_URL = settings.LITELLM_BASE_URL
 
 
 class LLMRegistry:
@@ -31,16 +24,20 @@ class LLMRegistry:
 
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": os.environ.get("DEFAULT_LLM_MODEL"),
-            "llm": ChatGroq(model=os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant")),
-        }
+            "name": "llama-3.3-70b-versatile",
+            "llm": ChatGroq(model="llama-3.3-70b-versatile"),
+        },
+        {
+            "name": "llama-3.1-8b-instant",
+            "llm": ChatGroq(model="llama-3.1-8b-instant"),
+        },
     ]
 
     @classmethod
     def get(cls, model_name: str, **kwargs) -> BaseChatModel:
         """Get an LLM by name with optional argument overrides.
 
-        When kwargs are provided a fresh ChatOpenAI instance is returned with
+        When kwargs are provided a fresh ChatGroq instance is returned with
         those overrides applied, leaving the shared registry entry untouched.
 
         Args:
@@ -61,7 +58,7 @@ class LLMRegistry:
 
         if kwargs:
             logger.debug("creating_llm_with_custom_args", model_name=model_name, custom_args=list(kwargs.keys()))
-            return ChatGroq(model=os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant"))
+            return ChatGroq(model=model_name, **kwargs)
 
         logger.debug("using_default_llm_instance", model_name=model_name)
         return model_entry["llm"]

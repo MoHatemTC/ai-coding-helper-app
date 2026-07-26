@@ -62,7 +62,6 @@ from app.services.skill_profile import skill_profile_service
 from app.utils import (
     dump_messages,
     extract_text_content,
-    prepare_messages,
     process_llm_response,
 )
 
@@ -168,7 +167,7 @@ class LangGraphAgent:
         )
 
         # Prepare messages with system prompt
-        messages = prepare_messages(state.messages, SYSTEM_PROMPT)
+        messages = [Message(role="system", content=SYSTEM_PROMPT)] + dump_messages(state.messages)
 
         try:
             # Use LLM service with automatic retries and circular fallback

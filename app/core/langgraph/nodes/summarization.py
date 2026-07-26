@@ -7,6 +7,7 @@ from app.core.logging import logger
 from app.schemas import GraphState
 from app.services.llm import llm_service
 from app.utils.graph import _count_tokens_tiktoken
+from langgraph.graph.message import RemoveMessage
 from langgraph.graph.state import END, Command
 
 SUMMARIZATION_PROMPT = """You are a conversation summarizer. Summarize the following conversation messages into a concise narrative that preserves key context, decisions, and topics discussed.
@@ -95,12 +96,19 @@ async def summarization_node(state: GraphState) -> Command:
         if existing_summary:
             new_summary = f"{existing_summary}\n\n{new_summary}"
 
+        remove_ids = [RemoveMessage(id=msg.id) for msg in older_messages if hasattr(msg, "id")]
+
         logger.info(
             "summarization_completed",
             new_summary_length=len(new_summary),
+            removed_count=len(remove_ids),
         )
 
-        return Command(update={"summary": new_summary, "last_message_index": new_index}, goto=END)
+        new_index = len(state.messages)
+
+        return Command(
+            update={"summary": new_summary, "messages": remove_ids, "last_message_index": new_index}, goto=END
+        )
 
     except Exception:
         logger.exception("summarization_failed")

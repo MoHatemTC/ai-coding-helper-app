@@ -7,7 +7,9 @@ console-friendly development logging and JSON-formatted production logging.
 
 import json
 import logging
+import os
 import sys
+import warnings
 from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
@@ -251,8 +253,14 @@ setup_logging()
 
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("groq").setLevel(logging.WARNING)
 logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
+logging.getLogger("transformers").setLevel(logging.WARNING)
+logging.getLogger("psycopg").setLevel(logging.WARNING)
+warnings.filterwarnings("ignore", category=FutureWarning, module="mem0")
+os.environ.setdefault("TQDM_DISABLE", "1")
 
 # Create logger instance
 logger = structlog.get_logger()

@@ -61,7 +61,7 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
-            model_name=os.environ.get("DEFAULT_LLM_MODEL", "llama-3.1-8b-instant"),
+            model_name=os.environ.get("SESSION_NAMING_MODEL", "llama-3.1-8b-instant"),
             response_format=SessionTitle,
             max_tokens=32,
             temperature=0.3,

@@ -2,11 +2,9 @@
 
 import tiktoken
 from langchain_core.messages import BaseMessage
-from langchain_core.messages import trim_messages as _trim_messages
 
 from app.core.config import settings
 from app.core.logging import logger
-from app.schemas import Message
 
 # Cache tiktoken encoding at module level — thread-safe and reusable
 try:
@@ -39,16 +37,28 @@ def _count_tokens_tiktoken(messages: list) -> int:
     return num_tokens
 
 
-def dump_messages(messages: list[Message]) -> list[dict]:
+def dump_messages(messages: list) -> list[dict]:
     """Dump the messages to a list of dictionaries.
 
     Args:
-        messages (list[Message]): The messages to dump.
+        messages: The messages to dump (Pydantic models, LangChain messages, or dicts).
 
     Returns:
         list[dict]: The dumped messages.
     """
-    return [message.model_dump() for message in messages]
+    result = []
+    for message in messages:
+        if isinstance(message, dict):
+            result.append(message)
+        elif hasattr(message, "model_dump"):
+            result.append(message.model_dump())
+        elif hasattr(message, "dict"):
+            result.append(message.dict())
+        else:
+            result.append(
+                {"role": getattr(message, "type", "unknown"), "content": getattr(message, "content", str(message))}
+            )
+    return result
 
 
 def extract_text_content(content: str | list) -> str:
@@ -100,39 +110,3 @@ def process_llm_response(response: BaseMessage) -> BaseMessage:
             extracted_length=len(response.content),
         )
     return response
-
-
-def prepare_messages(messages: list[Message], system_prompt: str) -> list[Message]:
-    """Prepare the messages for the LLM.
-
-    Args:
-        messages (list[Message]): The messages to prepare.
-        system_prompt (str): The system prompt to use.
-
-    Returns:
-        list[Message]: The prepared messages.
-    """
-    try:
-        trimmed_messages = _trim_messages(
-            dump_messages(messages),
-            strategy="last",
-            token_counter=_count_tokens_tiktoken,
-            max_tokens=settings.MAX_TOKENS,
-            start_on="human",
-            include_system=False,
-            allow_partial=False,
-        )
-    except ValueError as e:
-        # Handle unrecognized content blocks (e.g., reasoning blocks from GPT-5)
-        if "Unrecognized content block type" in str(e):
-            logger.warning(
-                "token_counting_failed_skipping_trim",
-                error=str(e),
-                message_count=len(messages),
-            )
-            # Skip trimming and return all messages
-            trimmed_messages = messages
-        else:
-            raise
-
-    return [Message(role="system", content=system_prompt)] + trimmed_messages
