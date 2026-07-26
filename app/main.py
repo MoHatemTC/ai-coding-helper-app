@@ -34,6 +34,7 @@ from app.core.observability import langfuse_init
 from app.services.database import database_service
 from app.services.memory import memory_service
 from app.services.checkpoint_cleanup import run_checkpoint_cleanup
+from app.services.skill_profile import skill_profile_service
 
 # Load environment variables
 load_dotenv()
@@ -79,6 +80,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     checkpoint_cleanup_task.cancel()
+    await skill_profile_service.shutdown()
     await cache_service.close()
     if agent._connection_pool:
         await agent._connection_pool.close()

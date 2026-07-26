@@ -163,6 +163,11 @@ class Settings:
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
         self.MEMORY_CONSOLIDATION_THRESHOLD = int(os.getenv("MEMORY_CONSOLIDATION_THRESHOLD", "1000"))
         self.MEMORY_CONSOLIDATION_TARGET = int(os.getenv("MEMORY_CONSOLIDATION_TARGET", "100"))
+
+        # Skill Profile Configuration
+        self.SKILL_PROFILE_SILENCE_SECONDS = int(os.getenv("SKILL_PROFILE_SILENCE_SECONDS", "1800"))
+        self.SKILL_PROFILE_MODEL = os.getenv("SKILL_PROFILE_MODEL", self.DEFAULT_LLM_MODEL)
+
         # JWT Configuration
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")

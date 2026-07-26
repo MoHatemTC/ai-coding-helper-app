@@ -29,3 +29,4 @@ class GraphState(BaseModel):
 
     summary: str = Field(default="", description="The summary of the conversation so far")
     last_message_index: int = Field(default=0, description="Index of the last message processed by summarization node")
+    skill_profile: str = Field(default="", description="The user's skill profile markdown")
