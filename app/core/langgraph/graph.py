@@ -18,6 +18,7 @@ from langchain_core.messages import (
     ToolMessage,
     convert_to_openai_messages,
 )
+from langfuse import observe  # type: ignore[attr-defined]
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.errors import GraphInterrupt
 from langgraph.graph import (
@@ -57,7 +58,7 @@ from app.core.langgraph.nodes.security_review import security_review_node
 from app.core.langgraph.tools import tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import get_langfuse_callback_handler
 from app.core.prompts import load_system_prompt
 from app.schemas import (
     GraphState,
@@ -228,6 +229,7 @@ class LangGraphAgent:
         # at runtime, so this cast is structurally sound, not a behavior change.
         return await generate_hint_node(cast(dict[str, Any], state))
 
+    @observe(name="langgraph.chat")  # type: ignore[arg-type]
     async def _chat(self, state: GraphState, config: RunnableConfig) -> Command:
         """Compose the mentor's draft reply from the shared persona, this turn's code, review findings, and prepared hint.
 
@@ -322,6 +324,7 @@ class LangGraphAgent:
             )
             raise Exception(f"failed to get llm response after trying all models: {str(e)}")
 
+    # Define our tool node
     async def _tool_call(self, state: GraphState) -> Command:
         """Process tool calls from the last message.
 
@@ -532,7 +535,9 @@ class LangGraphAgent:
             list[Message]: The response from the LLM.
         """
         graph = await self._get_graph()
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = (
+            [get_langfuse_callback_handler()] if settings.LANGFUSE_TRACING_ENABLED else []
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,
@@ -629,7 +634,9 @@ class LangGraphAgent:
         Yields:
             str: Incremental chunks of the final, outbound-approved response.
         """
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        callbacks: list[BaseCallbackHandler] = (
+            [get_langfuse_callback_handler()] if settings.LANGFUSE_TRACING_ENABLED else []
+        )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,

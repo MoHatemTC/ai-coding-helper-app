@@ -7,7 +7,7 @@ from langchain_core.runnables.config import RunnableConfig
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.config import settings
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import get_langfuse_callback_handler
 from app.prompts.hints import HINT_SYSTEM_PROMPT
 from app.schemas.review import Finding, HintLevel, HintState, MentorResponse
 from app.services.llm.registry import LLMRegistry
@@ -44,7 +44,7 @@ async def invoke_structured_llm_with_retry(system_prompt: str, user_payload: str
     structured_llm: Any = llm.with_structured_output(MentorResponse)
     invocation_config: RunnableConfig = {}
     if settings.LANGFUSE_TRACING_ENABLED:
-        invocation_config["callbacks"] = [langfuse_callback_handler]
+        invocation_config["callbacks"] = [get_langfuse_callback_handler()]
 
     logger.info("hint_llm_invocation_started", payload_length=len(user_payload))
     response: Any = await structured_llm.ainvoke(
