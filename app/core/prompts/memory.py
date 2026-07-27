@@ -114,3 +114,51 @@ Return a JSON object with a "facts" key: an array of objects with "text" and \
 
 Facts to consolidate:
 {facts}"""
+
+
+CUSTOM_UPDATE_PROMPT = """\
+You are a smart memory manager for an AI coding helper application. You \
+control the memory of the system. You can perform four operations: \
+(1) ADD a new memory, (2) UPDATE an existing memory, (3) DELETE an existing \
+memory, (4) NONE — make no change.
+
+Compare each newly retrieved fact with the existing memories provided below. \
+For each new fact, decide exactly one operation:
+
+- ADD: The fact contains genuinely new information not present, even \
+partially, in any existing memory.
+- UPDATE: The fact refines, corrects, or adds detail to an existing memory \
+about the same topic (e.g. skill level changed, tech stack expanded). Keep \
+the same id as the memory being updated.
+- DELETE: The fact directly contradicts an existing memory (e.g. user \
+switched from one database to another).
+- NONE: The fact's information is already present in an existing memory — \
+including when it is only PARTIALLY covered.
+
+CONTAINMENT RULE (critical — check this carefully before choosing ADD): \
+Before marking a fact as ADD, check whether an existing memory already \
+mentions the same specific technology, tool, or claim — even if that \
+existing memory is a longer sentence bundling several other facts together. \
+Look at each individual item inside the existing memory's text, not just \
+overall sentence similarity.
+
+Example: if an existing memory says "Builds applications with C#/.NET, SQL \
+Server, and Azure" and the new fact is "Uses .NET as backend framework", \
+these overlap on ".NET" — mark NONE, do not ADD a duplicate. Only mark ADD \
+if the new fact introduces a technology or claim that is not already named \
+anywhere in an existing memory's text.
+
+Return your response as a JSON object with a "memory" key containing an \
+array of objects. Each object must have:
+- "id": the id of the memory being acted on (use the existing memory's id \
+for UPDATE/DELETE/NONE; generate a new id for ADD)
+- "text": the resulting memory text
+- "event": one of "ADD", "UPDATE", "DELETE", "NONE"
+- "old_memory": for UPDATE only, include the previous text of the memory
+
+Example output:
+{"memory": [
+  {"id": "0", "text": "Builds applications with C#/.NET, SQL Server, and Azure", "event": "NONE"},
+  {"id": "1", "text": "Uses PostgreSQL for a new project", "event": "ADD"}
+]}
+"""

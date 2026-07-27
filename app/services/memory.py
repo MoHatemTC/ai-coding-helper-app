@@ -18,6 +18,7 @@ from app.core.logging import logger
 from app.core.prompts.memory import (
     CONSOLIDATION_PROMPT,
     FACT_EXTRACTION_PROMPT,
+    CUSTOM_UPDATE_PROMPT,
 )
 from app.schemas.memory import ConsolidatedFacts
 from app.services.database import database_service
@@ -62,6 +63,7 @@ class MemoryService:
                         "config": {"model": "sentence-transformers/all-MiniLM-L6-v2"},
                     },
                     "custom_fact_extraction_prompt": FACT_EXTRACTION_PROMPT,
+                    "custom_update_memory_prompt": CUSTOM_UPDATE_PROMPT,
                 }
             )
         return self._memory
@@ -183,12 +185,12 @@ class MemoryService:
                 logger.warning("memory_consolidation_produced_no_facts", user_id=user_id)
                 return
 
-            # Delete all old memories in parallel
-            await asyncio.gather(*(memory.delete(m["id"]) for m in memories))
+            # Add consolidated facts FIRST so we never lose data if add fails
+            merged_messages = [{"role": "user", "content": fact} for fact in result.facts]
+            await memory.add(merged_messages, user_id=user_id, infer=False)
 
-            # Add consolidated facts in a single mem0 call
-            merged_messages = [{"role": "user", "content": fact} for fact in result.facts[:target]]
-            await memory.add(merged_messages, user_id=user_id)
+            # Only delete old memories after successful add
+            await asyncio.gather(*(memory.delete(m["id"]) for m in memories))
 
             logger.info(
                 "memory_consolidation_completed",
