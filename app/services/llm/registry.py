@@ -33,18 +33,29 @@ class LLMRegistry:
                 base_url="https://openrouter.ai/api/v1",
                 api_key=SecretStr(os.environ["OPENROUTER_API_KEY"]),
             ),
+            "llm_class": ChatOpenAI,
+            "constructor_kwargs": {
+                "base_url": "https://openrouter.ai/api/v1",
+                "api_key": os.environ["OPENROUTER_API_KEY"],
+            },
         },
         {
             "name": "openai/gpt-oss-120b",
             "llm": ChatGroq(model="openai/gpt-oss-120b"),
+            "llm_class": ChatGroq,
+            "constructor_kwargs": {},
         },
         {
             "name": "llama-3.3-70b-versatile",
             "llm": ChatGroq(model="llama-3.3-70b-versatile"),
+            "llm_class": ChatGroq,
+            "constructor_kwargs": {},
         },
         {
             "name": "llama-3.1-8b-instant",
             "llm": ChatGroq(model="llama-3.1-8b-instant"),
+            "llm_class": ChatGroq,
+            "constructor_kwargs": {},
         },
     ]
 
@@ -52,8 +63,9 @@ class LLMRegistry:
     def get(cls, model_name: str, **kwargs) -> BaseChatModel:
         """Get an LLM by name with optional argument overrides.
 
-        When kwargs are provided a fresh ChatGroq instance is returned with
-        those overrides applied, leaving the shared registry entry untouched.
+        When kwargs are provided a fresh instance of the correct LLM class
+        is returned with those overrides applied, leaving the shared registry
+        entry untouched.
 
         Args:
             model_name: Name of the model to retrieve.
@@ -72,8 +84,15 @@ class LLMRegistry:
             raise ValueError(f"model '{model_name}' not found in registry. available models: {available}")
 
         if kwargs:
-            logger.debug("creating_llm_with_custom_args", model_name=model_name, custom_args=list(kwargs.keys()))
-            return ChatGroq(model=model_name, **kwargs)
+            llm_class = model_entry["llm_class"]
+            extra = model_entry.get("constructor_kwargs", {})
+            logger.debug(
+                "creating_llm_with_custom_args",
+                model_name=model_name,
+                llm_class=llm_class.__name__,
+                custom_args=list(kwargs.keys()),
+            )
+            return llm_class(model=model_name, **extra, **kwargs)
 
         logger.debug("using_default_llm_instance", model_name=model_name)
         return model_entry["llm"]

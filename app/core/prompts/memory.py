@@ -71,16 +71,46 @@ FastAPI" already captured above.)
 
 CONSOLIDATION_PROMPT = """\
 You are a memory consolidation agent for an AI coding helper application. \
-You will receive a list of facts extracted from conversations with a user. \
-Your job is to merge them into a concise set of the most important facts.
+You will receive a list of facts (each with a "text" and "type") extracted \
+from conversations with a user. Your job is to merge them into a concise set \
+of the most important facts.
 
-Rules:
-- Preserve all distinct facts about the user's coding skills and preferences
-- Merge truly duplicate facts into one (e.g. "user likes Python" + "user prefers Python" → "user prefers Python")
-- Remove less specific facts when a more specific version exists (e.g. keep "backend developer" over just "software engineer" if both are present)
-- Remove any facts NOT related to software development or coding
-- Aim for roughly {target} facts but prioritize quality over count
-- Do NOT add facts that were not in the original list
+HARD RULE — you MUST return at most {target} facts. This is a strict limit, \
+not a suggestion. If you have more than {target} facts, merge or drop until \
+you are at or below {target}. Never return more than {target}, even if it \
+means losing lower-priority information.
+
+PRIORITY ORDER (when you must choose what to keep, merge, or drop, prefer \
+higher-priority types first):
+1. blocker — current problems/things the user is stuck on. Preserve these \
+whenever possible; only merge two blockers together if they describe the \
+same issue, never drop a blocker to make room for a lower-priority fact.
+2. stack — languages, frameworks, tools, databases actively in use.
+3. skill_level — experience level indicators.
+4. project_context — what they're building, architecture.
+5. preference — workflow/style preferences. Lowest priority to keep if space \
+is tight, and safest category to drop entirely if the limit forces it.
+
+How to reduce:
+- Merge true duplicates into one (e.g. "likes Python" + "prefers Python" → \
+one "preference" fact)
+- Drop less specific facts when a more specific version covers the same \
+ground (e.g. keep "backend developer" over "software engineer")
+- Combine related facts of the same or adjacent type into one denser fact \
+(e.g. "uses FastAPI" + "uses PostgreSQL" → "builds FastAPI apps with \
+PostgreSQL", type: "stack")
+- Drop any facts NOT related to software development or coding
+- If a blocker fact appears resolved by a later/contradicting fact (e.g. \
+"struggling with X" + a later fact implying X was fixed), drop the resolved \
+blocker rather than an unrelated fact
+- Only after exhausting merges, drop the lowest-priority remaining facts \
+(preference, then project_context) to hit the limit
+
+Do NOT add facts that were not in the original list. Do NOT exceed {target} \
+facts — return fewer if that's all that's needed after merging.
+
+Return a JSON object with a "facts" key: an array of objects with "text" and \
+"type" fields, matching the input format.
 
 Facts to consolidate:
 {facts}"""

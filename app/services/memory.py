@@ -156,7 +156,7 @@ class MemoryService:
             memory = await self._get_memory()
 
             # Fetch all memories for this user
-            all_memories = await memory.get_all(user_id=user_id, limit=500)
+            all_memories = await memory.get_all(user_id=user_id)
             memories = all_memories.get("results", [])
             if not memories:
                 return
@@ -175,16 +175,19 @@ class MemoryService:
             )
             result = ConsolidatedFacts.model_validate(raw_result)
 
+            # Hard cap: LLM may ignore target — truncate to enforce it
+            if len(result.facts) > target:
+                result = ConsolidatedFacts(facts=result.facts[:target])
+
             if not result.facts:
                 logger.warning("memory_consolidation_produced_no_facts", user_id=user_id)
                 return
 
-            # Delete all old memories
-            for m in memories:
-                await memory.delete(m["id"])
+            # Delete all old memories in parallel
+            await asyncio.gather(*(memory.delete(m["id"]) for m in memories))
 
-            # Add each consolidated fact individually — mem0 extracts from each one
-            merged_messages = [{"role": "user", "content": fact} for fact in result.facts]
+            # Add consolidated facts in a single mem0 call
+            merged_messages = [{"role": "user", "content": fact} for fact in result.facts[:target]]
             await memory.add(merged_messages, user_id=user_id)
 
             logger.info(
