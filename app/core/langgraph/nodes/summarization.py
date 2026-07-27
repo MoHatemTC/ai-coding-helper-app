@@ -13,7 +13,7 @@ from langgraph.graph.state import END, Command
 SUMMARIZATION_PROMPT = """You are a conversation summarizer. Summarize the following conversation messages into a concise narrative that preserves key context, decisions, and topics discussed.
 
 Rules:
-- Keep the summary under 200 words
+- Keep the summary under 1000 tokens (roughly 700-800 words)
 - Preserve important facts, decisions, and code-related context
 - Use present tense for readability
 - Do not include filler or greetings
@@ -64,8 +64,8 @@ async def summarization_node(state: GraphState) -> Command:
         message_count=len(messages),
     )
 
-    half = len(messages) // 2
-    older_messages = messages[:half]
+    older_messages_index = int(len(messages) * (2 / 3))
+    older_messages = messages[:older_messages_index]
 
     summary_input = []
     if existing_summary:
@@ -89,6 +89,7 @@ async def summarization_node(state: GraphState) -> Command:
                 *summary_input,
             ],
             temperature=0,
+            max_tokens=1000,
         )
 
         new_summary = summary_response.content if hasattr(summary_response, "content") else str(summary_response)

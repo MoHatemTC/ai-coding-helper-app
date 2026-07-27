@@ -52,9 +52,9 @@ class MemoryService:
                     "llm": {
                         "provider": "groq",
                         "config": {
-                            "model": "llama-3.1-8b-instant",
+                            "model": "llama-3.3-70b-versatile",
                             "api_key": os.getenv("GROQ_API_KEY"),
-                            "max_tokens": 200,
+                            "max_tokens": 400,
                         },
                     },
                     "embedder": {
@@ -166,7 +166,7 @@ class MemoryService:
             target = settings.MEMORY_CONSOLIDATION_TARGET
 
             # Use structured output for deterministic parsing
-            llm = LLMRegistry.get("llama-3.1-8b-instant", temperature=0, max_tokens=500)
+            llm = LLMRegistry.get("llama-3.3-70b-versatile", temperature=0, max_tokens=500)
             structured_llm = llm.with_structured_output(ConsolidatedFacts)
             raw_result = await structured_llm.ainvoke(
                 [

@@ -1,5 +1,6 @@
 """LLM model registry with pre-initialized instances."""
 
+import os
 from typing import (
     Any,
     Dict,
@@ -7,6 +8,8 @@ from typing import (
 )
 
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from app.core.logging import logger
 from dotenv import load_dotenv
@@ -23,6 +26,18 @@ class LLMRegistry:
     """
 
     LLMS: List[Dict[str, Any]] = [
+        {
+            "name": "openrouter/free",
+            "llm": ChatOpenAI(
+                model="openrouter/free",
+                base_url="https://openrouter.ai/api/v1",
+                api_key=SecretStr(os.environ["OPENROUTER_API_KEY"]),
+            ),
+        },
+        {
+            "name": "openai/gpt-oss-120b",
+            "llm": ChatGroq(model="openai/gpt-oss-120b"),
+        },
         {
             "name": "llama-3.3-70b-versatile",
             "llm": ChatGroq(model="llama-3.3-70b-versatile"),
