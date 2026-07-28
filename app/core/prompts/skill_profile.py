@@ -54,6 +54,14 @@ Category guide:
 - strength / struggle / pattern / project_context must NOT have one — those \
 describe behavior, not skill level, and are the correct place for a \
 specific knowledge gap or a specific thing the user does well.
+- Reference examples — use these exact category assignments for well-known \
+entities, don't re-judge them each time:
+  language: Python, TypeScript, JavaScript, Go, Rust, Java, C++
+  framework: FastAPI, Django, Flask, Express, React, Next.js, Spring
+  tool: Docker, pytest, Redis, Git, SQLAlchemy, mypy, PostgreSQL, Kubernetes
+  A web framework is never a language. A testing/database/ORM/deployment \
+library is a tool, not a framework, unless it's a full application \
+framework like the ones listed above.
 
 Current profile:
 {existing_profile}
