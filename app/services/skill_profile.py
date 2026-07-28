@@ -23,7 +23,7 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.core.prompts.skill_profile import SKILL_PROFILE_DELTA_PROMPT
 from app.models.skill_profile import SkillProfileEntry
-from app.schemas.skill_profile import ProfileDelta, SkillCategory
+from app.schemas.skill_profile import ProfileDelta, SkillAssessment, SkillCategory
 from app.services.database import database_service
 from app.services.llm.registry import LLMRegistry
 
@@ -46,6 +46,47 @@ _CATEGORY_LABELS = {
     SkillCategory.PATTERN: "Coding patterns",
     SkillCategory.PROJECT_CONTEXT: "Project context",
 }
+
+
+def _is_grounded(skill_key: str, conversation: str) -> bool:
+    """Loose textual grounding check for brand-new skills.
+
+    Not a semantic check — just makes it impossible for the model to invent
+    a skill/tool with zero textual basis (e.g. "mypy" when the word never
+    appears anywhere in the conversation). Multi-word skills only need one
+    significant word to match, since paraphrased sub-topics ("list methods"
+    for "how do I add to a list") are legitimate and shouldn't be rejected.
+    """
+    text = conversation.lower()
+    words = [w for w in skill_key.split() if len(w) > 2]
+    if not words:
+        return skill_key in text
+    return any(w in text for w in words)
+
+
+def _filter_grounded(delta: ProfileDelta, conversation: str, existing_keys: set[str]) -> ProfileDelta:
+    """Drop upserts for brand-new skills with no textual basis in the conversation.
+
+    Corrections to skills already in the profile are left alone — those are
+    harder to verify this way and the prompt's grounding rules carry more of
+    that weight. This filter is specifically the defense against the
+    "invented a tool from nowhere" failure mode.
+    """
+    kept: list[SkillAssessment] = []
+    for item in delta.upsert:
+        skill_key = item.skill.strip().lower()
+        if skill_key in existing_keys or _is_grounded(skill_key, conversation):
+            kept.append(item)
+        else:
+            logger.warning(
+                "skill_profile_ungrounded_upsert_dropped",
+                skill=item.skill,
+                category=item.category,
+            )
+    dropped = len(delta.upsert) - len(kept)
+    if dropped:
+        delta = delta.model_copy(update={"upsert": kept})
+    return delta
 
 
 class SkillProfileService:
@@ -127,13 +168,31 @@ class SkillProfileService:
 
     # ── Rendering for system-prompt injection (not markdown — plain grouped text) ──
 
+    @staticmethod
+    def _render_entries(entries: list[SkillProfileEntry]) -> str:
+        """Build the compact string injected into the mentor's system prompt."""
+        by_category: dict[SkillCategory, list[SkillProfileEntry]] = {}
+        for entry in entries:
+            by_category.setdefault(entry.category, []).append(entry)
+
+        lines: list[str] = []
+        for category in _CATEGORY_DISPLAY_ORDER:
+            cat_entries = by_category.get(category)
+            if not cat_entries:
+                continue
+            lines.append(f"{_CATEGORY_LABELS[category]}:")
+            for e in cat_entries:
+                prof = f" ({e.proficiency.value})" if e.proficiency else ""
+                lines.append(f"- {e.skill}{prof}: {e.detail}")
+        return "\n".join(lines)
+
     def render_for_prompt(self, user_id: int, max_entries: int = 50) -> str:
         """Build the compact string injected into the mentor's system prompt.
 
         Args:
             user_id: The user whose profile to render.
             max_entries: Cap on total entries to prevent unbounded system prompt growth.
-                         Entries beyond the cap are silently dropped (lowest evidence first).
+                            Entries beyond the cap are silently dropped (lowest evidence first).
         """
         entries = self.load_entries(user_id)
         if not entries:
@@ -166,7 +225,9 @@ class SkillProfileService:
 
     async def propose_delta(self, user_id: int, conversation: str) -> ProfileDelta:
         """Single structured-output LLM call — generation + reflection merged."""
-        existing_text = await asyncio.to_thread(self.render_for_prompt, user_id)
+        entries = await asyncio.to_thread(self.load_entries, user_id)
+        existing_text = self._render_entries(entries) if entries else "No skill profile recorded yet."
+        existing_keys = {e.skill_key for e in entries}
 
         llm = LLMRegistry.get(settings.SKILL_PROFILE_MODEL, temperature=0.1, max_tokens=800)
         structured_llm = llm.with_structured_output(ProfileDelta)
@@ -184,7 +245,8 @@ class SkillProfileService:
             )
             # with_structured_output should already return a ProfileDelta, but
             # guard in case the registry wraps it in a dict at some point.
-            return result if isinstance(result, ProfileDelta) else ProfileDelta.model_validate(result)
+            delta = result if isinstance(result, ProfileDelta) else ProfileDelta.model_validate(result)
+            return _filter_grounded(delta, conversation, existing_keys)
         except Exception:
             logger.exception("skill_profile_delta_failed", user_id=user_id)
             return ProfileDelta()  # empty delta = safe no-op, never corrupts existing rows
