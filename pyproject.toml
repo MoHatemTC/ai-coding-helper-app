@@ -42,6 +42,7 @@ dependencies = [
     "alembic>=1.18.4",
     "langchain-groq>=1.0.1",
     "transformers>=5.14.0",
+    "mcp>=1.28.1",
 ]
 
 [project.optional-dependencies]
