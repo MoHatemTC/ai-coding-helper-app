@@ -1,6 +1,8 @@
 """This file contains the message model for the application."""
 
-from typing import TYPE_CHECKING
+from typing import (
+    TYPE_CHECKING,
+)
 from uuid import UUID, uuid4
 
 from sqlalchemy import Column, Text
