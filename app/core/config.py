@@ -168,6 +168,69 @@ class Settings:
         self.SKILL_PROFILE_SILENCE_SECONDS = int(os.getenv("SKILL_PROFILE_SILENCE_SECONDS", "1800"))
         self.SKILL_PROFILE_MODEL = os.getenv("SKILL_PROFILE_MODEL", self.DEFAULT_LLM_MODEL)
 
+        # Document Pipeline Configuration
+        self.UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+        self.MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024)))  # 10MB default
+        self.ALLOWED_EXTENSIONS = parse_list_from_env(
+            "ALLOWED_EXTENSIONS",
+            [
+                ".py",
+                ".txt",
+                ".cpp",
+                ".cxx",
+                ".hpp",
+                ".h",
+                ".c",
+                ".cs",
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".java",
+                ".go",
+                ".rs",
+                ".rb",
+                ".php",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".r",
+                ".m",
+                ".mm",
+                ".sql",
+                ".sh",
+                ".bash",
+                ".yaml",
+                ".yml",
+                ".json",
+                ".xml",
+                ".md",
+                ".html",
+                ".css",
+                ".scss",
+                ".less",
+                ".vue",
+                ".svelte",
+                ".lua",
+                ".pl",
+                ".pm",
+                ".hs",
+                ".erl",
+                ".ex",
+                ".exs",
+                ".clj",
+                ".cljs",
+                ".edn",
+                ".zig",
+                ".nim",
+                ".dart",
+            ],
+        )
+        self.TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
+        self.EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "Salesforce/SFR-Embedding-Code-400M_R")
+        self.EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
+        self.MCP_SERVER_TRANSPORT = os.getenv("MCP_SERVER_TRANSPORT", "stdio")
+
         # JWT Configuration
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")

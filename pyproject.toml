@@ -46,6 +46,12 @@ dependencies = [
     "streamlit>=1.60.0",
     "torchvision>=0.28.0",
     "langchain-cerebras>=0.8.2",
+    "llama-index>=0.14.23",
+    "llama-index-core>=0.14.23",
+    "tree-sitter>=0.26.0",
+    "tree-sitter-language-pack>=1.13.5",
+    "mcp>=1.28,<2",
+    "langchain-mcp-adapters>=0.3.0",
 ]
 
 [project.optional-dependencies]

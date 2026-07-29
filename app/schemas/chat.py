@@ -56,46 +56,17 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     """Request model for chat endpoint.
 
+    When sending with file attachments, use multipart/form-data with
+    the message as a form field and files as UploadFile list.
+
     Attributes:
         message: The user message for this turn.
-        code: Optional code snippet submitted for review.
-        language: Optional programming language of the submitted code.
     """
 
     message: str = Field(
         ...,
         description="The user message for this turn",
     )
-    code: str | None = Field(
-        default=None,
-        description="Optional code snippet submitted for review",
-        max_length=20000,
-    )
-    language: str | None = Field(
-        default=None,
-        description="Optional programming language of the submitted code",
-        max_length=50,
-    )
-
-    @field_validator("code")
-    @classmethod
-    def validate_code(cls, v: str | None) -> str | None:
-        """Validate the submitted code snippet.
-
-        Args:
-            v: The code to validate
-
-        Returns:
-            str | None: The validated code
-
-        Raises:
-            ValueError: If the code contains null bytes
-        """
-        if v is None:
-            return v
-        if "\0" in v:
-            raise ValueError("Code contains null bytes")
-        return v
 
 
 class ChatResponse(BaseResponse):

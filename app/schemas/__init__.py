@@ -8,6 +8,7 @@ from app.schemas.chat import (
     Message,
     StreamResponse,
 )
+from app.schemas.document import FileAttachment
 from app.schemas.graph import GraphState
 from app.schemas.review import Finding
 
@@ -16,8 +17,9 @@ __all__ = [
     "BaseResponse",
     "ChatRequest",
     "ChatResponse",
+    "FileAttachment",
+    "Finding",
+    "GraphState",
     "Message",
     "StreamResponse",
-    "GraphState",
-    "Finding",
 ]

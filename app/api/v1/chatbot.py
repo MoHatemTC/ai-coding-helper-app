@@ -65,8 +65,6 @@ async def chat(
             session.id,
             user_id=str(session.user_id),
             username=session.username,
-            code=chat_request.code,
-            language=chat_request.language,
         )
 
         logger.info("chat_request_processed", session_id=session.id)
@@ -104,8 +102,6 @@ async def chat_stream(
                         session.id,
                         user_id=str(session.user_id),
                         username=session.username,
-                        code=chat_request.code,
-                        language=chat_request.language,
                     ):
                         response = StreamResponse(content=chunk, done=False)
                         yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
