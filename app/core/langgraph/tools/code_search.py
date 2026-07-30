@@ -64,8 +64,5 @@ def search_code(query: str, file_name: str | None = None) -> str:
         header = f"[{chunk.file_name} ({chunk.language})] created: {chunk.created_at.isoformat() if chunk.created_at else 'unknown'}"
         lines.append(f"{header}\n```\n{chunk.content}\n```")
 
-    print("===================== SEARCH RESULTS =====================")
-    print("\n".join(lines))
-    print("=========================================================")
     logger.info("search_code_tool_completed", result_count=len(results))
     return "\n---\n".join(lines)
