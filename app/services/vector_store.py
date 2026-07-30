@@ -55,6 +55,8 @@ class VectorStoreService:
         contents = [c.content for c in chunks]
         vectors = _embed(contents)
 
+        file_id = chunks[0].file_id if chunks else None
+
         for chunk, vector in zip(chunks, vectors, strict=True):
             chunk.embedding = vector
 
@@ -65,7 +67,7 @@ class VectorStoreService:
         logger.info(
             "chunks_stored",
             count=len(chunks),
-            file_id=chunks[0].file_id if chunks else None,
+            file_id=file_id,
         )
 
     # ------------------------------------------------------------------

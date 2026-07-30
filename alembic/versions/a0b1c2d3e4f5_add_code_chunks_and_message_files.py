@@ -40,7 +40,7 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column(
             "embedding",
-            Vector(768),
+            Vector(384),
             nullable=True,
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
