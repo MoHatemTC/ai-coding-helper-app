@@ -45,9 +45,10 @@ from app.core.config import (
     Environment,
     settings,
 )
+from app.core.langgraph.nodes.document_pipeline import document_pipeline_node
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
-from app.core.langgraph.tools import tools
+from app.core.langgraph.tools import set_session_id, set_user_id, tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
 from app.core.observability import langfuse_callback_handler
@@ -237,6 +238,11 @@ class LangGraphAgent:
         if self._graph is None:
             try:
                 graph_builder = StateGraph(GraphState)
+                graph_builder.add_node(
+                    "document_pipeline",
+                    document_pipeline_node,
+                    destinations=("chat",),
+                )
                 graph_builder.add_node("chat", self._chat, destinations=("tool_call", "store_messages"))
                 graph_builder.add_node(
                     "tool_call",
@@ -246,7 +252,7 @@ class LangGraphAgent:
                 )
                 graph_builder.add_node("store_messages", store_messages_node, destinations=("summarization",))
                 graph_builder.add_node("summarization", summarization_node, destinations=(END,))
-                graph_builder.set_entry_point("chat")
+                graph_builder.set_entry_point("document_pipeline")
                 graph_builder.set_finish_point("summarization")
 
                 # Get connection pool (may be None in production if DB unavailable)
@@ -302,6 +308,7 @@ class LangGraphAgent:
         username: Optional[str] = None,
         code: Optional[str] = None,
         language: Optional[str] = None,
+        pending_files: Optional[list] = None,
     ) -> list[Message]:
         """Get a response from the LLM.
 
@@ -312,6 +319,7 @@ class LangGraphAgent:
             username (Optional[str]): The display name of the user.
             code (Optional[str]): The code snippet submitted for review.
             language (Optional[str]): The programming language of the submitted code.
+            pending_files (Optional[list]): FileAttachments uploaded but not yet processed.
 
         Returns:
             list[Message]: The assistant message for this turn.
@@ -331,6 +339,11 @@ class LangGraphAgent:
         }
 
         try:
+            # Set session_id and user_id for tool context
+            set_session_id(session_id)
+            if user_id:
+                set_user_id(int(user_id))
+
             # Run state check, memory search, and skill profile load concurrently
             state, relevant_memory, skill_profile = await asyncio.gather(
                 graph.aget_state(config),
@@ -360,6 +373,7 @@ class LangGraphAgent:
                         "code": code,
                         "language": language,
                         "last_message_index": len(existing_messages),
+                        "pending_files": pending_files or [],
                     },
                     config=config,
                 )
@@ -396,6 +410,7 @@ class LangGraphAgent:
         username: Optional[str] = None,
         code: Optional[str] = None,
         language: Optional[str] = None,
+        pending_files: Optional[list] = None,
     ) -> AsyncGenerator[str, None]:
         """Get a stream response from the LLM.
 
@@ -406,6 +421,7 @@ class LangGraphAgent:
             username (Optional[str]): The display name of the user.
             code (Optional[str]): The code snippet submitted for review.
             language (Optional[str]): The programming language of the submitted code.
+            pending_files (Optional[list]): FileAttachments uploaded but not yet processed.
 
         Yields:
             str: Tokens of the LLM response.
@@ -425,6 +441,11 @@ class LangGraphAgent:
         graph = await self._get_graph()
 
         try:
+            # Set session_id and user_id for tool context
+            set_session_id(session_id)
+            if user_id:
+                set_user_id(int(user_id))
+
             # Run state check, memory search, and skill profile load concurrently
             state, relevant_memory, skill_profile = await asyncio.gather(
                 graph.aget_state(config),
@@ -450,6 +471,7 @@ class LangGraphAgent:
                     "code": code,
                     "language": language,
                     "last_message_index": len(existing_messages),
+                    "pending_files": pending_files or [],
                 }
 
             async for token, _ in graph.astream(

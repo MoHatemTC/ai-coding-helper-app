@@ -9,9 +9,12 @@ import json
 from fastapi import (
     APIRouter,
     Depends,
+    File,
+    Form,
     HTTPException,
     Query,
     Request,
+    UploadFile,
 )
 from fastapi.responses import StreamingResponse
 
@@ -23,12 +26,12 @@ from app.core.logging import logger
 from app.core.metrics import llm_stream_duration_seconds
 from app.models.session import Session
 from app.schemas.chat import (
-    ChatRequest,
     ChatResponse,
     Message as MessageSchema,
     PaginatedChatResponse,
     StreamResponse,
 )
+from app.services.document_service import document_service
 from app.services.message import message_service
 from app.services.session_naming import maybe_name_session
 
@@ -37,14 +40,49 @@ router = APIRouter()
 agent = LangGraphAgent()
 
 
+async def _process_files(
+    files: list[UploadFile] | None,
+    session: Session,
+) -> list:
+    """Validate and save uploaded files, returning FileAttachment lists."""
+    if not files:
+        return []
+
+    errors = []
+    for file in files:
+        error = await document_service.validate_file(file)
+        if error:
+            errors.append(error)
+    if any(errors):
+        raise HTTPException(status_code=400, detail=errors)
+    attachments: list = []
+    for file in files:
+        attachment = await document_service.save_file(
+            file=file,
+            user_id=session.user_id,
+            session_id=session.id,
+        )
+        attachments.append(attachment)
+
+    if attachments:
+        logger.info("files_uploaded", session_id=session.id, file_count=len(attachments))
+
+    return attachments
+
+
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat"][0])
 async def chat(
     request: Request,
-    chat_request: ChatRequest,
+    message: str = Form(...),
     session: Session = Depends(get_current_session),
+    files: list[UploadFile] | None = File(None),
 ):
     """Process a chat request using LangGraph.
+
+    Accepts multipart/form-data with the message text and optional code files.
+    Uploaded files are split, embedded, and stored in the vector database
+    before the LLM generates a response.
 
     Returns only the user and assistant messages from this request.
     Message storage happens as a graph node after the LLM response.
@@ -55,7 +93,8 @@ async def chat(
             session_id=session.id,
         )
 
-        user_message = MessageSchema(role="user", content=chat_request.message)
+        pending_files = await _process_files(files, session)
+        user_message = MessageSchema(role="user", content=message)
 
         if settings.SESSION_NAMING_ENABLED:
             maybe_name_session(session.id, session.name, [user_message])
@@ -65,11 +104,14 @@ async def chat(
             session.id,
             user_id=str(session.user_id),
             username=session.username,
+            pending_files=pending_files,
         )
 
         logger.info("chat_request_processed", session_id=session.id)
 
         return ChatResponse(messages=result)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("chat_request_failed", session_id=session.id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -79,29 +121,38 @@ async def chat(
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat_stream"][0])
 async def chat_stream(
     request: Request,
-    chat_request: ChatRequest,
+    message: str = Form(...),
     session: Session = Depends(get_current_session),
+    files: list[UploadFile] | None = File(None),
 ):
-    """Process a chat request using LangGraph with streaming response."""
+    """Process a chat request using LangGraph with streaming response.
+
+    Accepts multipart/form-data with the message text and optional code files.
+    Uploaded files are split, embedded, and stored in the vector database
+    before the LLM generates a response.
+    """
     try:
         logger.info(
             "stream_chat_request_received",
             session_id=session.id,
         )
 
+        pending_files = await _process_files(files, session)
+
         if settings.SESSION_NAMING_ENABLED:
-            maybe_name_session(session.id, session.name, [chat_request.message])
+            maybe_name_session(session.id, session.name, [message])
 
         async def event_generator():
             """Generate streaming events."""
             try:
-                user_message = MessageSchema(role="user", content=chat_request.message)
+                user_message = MessageSchema(role="user", content=message)
                 with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
                     async for chunk in agent.get_stream_response(
                         user_message,
                         session.id,
                         user_id=str(session.user_id),
                         username=session.username,
+                        pending_files=pending_files,
                     ):
                         response = StreamResponse(content=chunk, done=False)
                         yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
@@ -120,6 +171,8 @@ async def chat_stream(
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(
             "stream_chat_request_failed",

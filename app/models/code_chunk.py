@@ -20,9 +20,10 @@ class CodeChunk(BaseModel, table=True):
         session_id: Foreign key to the session the file was uploaded in
         file_id: Unique identifier per uploaded file
         file_name: Original filename, LLM-filterable
+        language: Detected programming language
         content: The chunk text extracted by the code splitter
         embedding: pgvector embedding vector (768d)
-        chunk_metadata: JSONB blob from llamaIndex CodeSplitter + file info (file_id, file_name, language, uploaded_at)
+        chunk_metadata: JSONB blob from llamaIndex CodeSplitter (start_line, end_line, etc.)
         created_at: When the chunk was created (inherited from BaseModel)
     """
 
@@ -31,6 +32,9 @@ class CodeChunk(BaseModel, table=True):
     session_id: str = Field(foreign_key="session.id", nullable=False)
     file_id: str = Field(nullable=False, index=True)
     file_name: str = Field(nullable=False, index=True)
+    language: str = Field(nullable=False, index=True)
     content: str = Field(sa_column=Column(Text, nullable=False))
-    embedding: list[float] = Field(sa_column=Column(Vector(settings.EMBEDDING_DIM), nullable=True))
+    embedding: list[float] | None = Field(
+        default=None, sa_column=Column(Vector(settings.EMBEDDING_DIM), nullable=True)
+    )
     chunk_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False, server_default="{}"))

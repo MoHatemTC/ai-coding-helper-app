@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("session_id", sa.String(), nullable=False),
         sa.Column("file_id", sa.String(), nullable=False),
         sa.Column("file_name", sa.String(), nullable=False),
+        sa.Column("language", sa.String(), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column(
             "embedding",
@@ -51,6 +52,7 @@ def upgrade() -> None:
     # Create indexes
     op.create_index("idx_code_chunk_file_id", "code_chunk", ["file_id"])
     op.create_index("idx_code_chunk_file_name", "code_chunk", ["file_name"])
+    op.create_index("idx_code_chunk_language", "code_chunk", ["language"])
     op.create_index("idx_code_chunk_session_id", "code_chunk", ["session_id"])
     op.create_index("idx_code_chunk_user_id", "code_chunk", ["user_id"])
     op.create_index(
@@ -68,6 +70,7 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS idx_code_chunk_embedding_hnsw")
     op.drop_index("idx_code_chunk_user_id", table_name="code_chunk")
     op.drop_index("idx_code_chunk_session_id", table_name="code_chunk")
+    op.drop_index("idx_code_chunk_language", table_name="code_chunk")
     op.drop_index("idx_code_chunk_file_name", table_name="code_chunk")
     op.drop_index("idx_code_chunk_file_id", table_name="code_chunk")
     op.drop_table("code_chunk")

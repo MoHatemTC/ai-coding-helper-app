@@ -82,12 +82,12 @@ class VectorStoreService:
     ) -> list[CodeChunk]:
         """Search chunks by cosine similarity to a query string.
 
-        Always scoped to the current session.
+        Always scoped to the current session and user.
 
         Args:
             query: The natural-language query.
             session_id: Scope results to this session (required).
-            user_id: If set, scope results to this user.
+            user_id: Scope results to this user (required).
             file_name: If set, scope results to this filename.
             top_k: Number of results (defaults to settings.TOP_K_RETRIEVAL).
 
@@ -97,11 +97,8 @@ class VectorStoreService:
         k = top_k or settings.TOP_K_RETRIEVAL
         query_vec = _embed([query])[0]
 
-        conditions = ["ch.session_id = :session_id"]
-        params: dict = {"k": k, "session_id": session_id}
-
-        conditions.append("ch.user_id = :user_id")
-        params["user_id"] = user_id
+        conditions = ["ch.session_id = :session_id", "ch.user_id = :user_id"]
+        params: dict = {"k": k, "session_id": session_id, "user_id": user_id}
 
         if file_name is not None:
             conditions.append("ch.file_name = :file_name")
@@ -112,7 +109,7 @@ class VectorStoreService:
         stmt = text(
             f"""
             SELECT ch.id, ch.user_id, ch.session_id, ch.file_id,
-                   ch.file_name, ch.content, ch.chunk_metadata,
+                   ch.file_name, ch.language, ch.content, ch.chunk_metadata,
                    ch.embedding, ch.created_at,
                    (ch.embedding <=> :query_vec::vector) AS distance
             FROM code_chunk ch
@@ -135,6 +132,7 @@ class VectorStoreService:
                     session_id=row.session_id,
                     file_id=row.file_id,
                     file_name=row.file_name,
+                    language=row.language,
                     content=row.content,
                     chunk_metadata=row.chunk_metadata or {},
                     embedding=row.embedding,
