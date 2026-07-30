@@ -5,6 +5,7 @@ streaming chat, message history management, and chat history clearing.
 """
 
 import json
+from pathlib import Path
 
 from fastapi import (
     APIRouter,
@@ -15,8 +16,9 @@ from fastapi import (
     Query,
     Request,
     UploadFile,
+    status,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
@@ -238,3 +240,48 @@ async def clear_chat_history(
     except Exception as e:
         logger.exception("clear_chat_history_failed", session_id=session.id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/file/")
+@limiter.limit(settings.RATE_LIMIT_ENDPOINTS["uploads"][0])
+async def serve_uploaded_file(
+    request: Request,
+    session: Session = Depends(get_current_session),
+    url: str = Query(..., description="stored_path of the uploaded file"),
+):
+    """Serve an uploaded file with session-based authentication.
+
+    The caller must provide a valid session Bearer token and the ``url``
+    query parameter matching the ``stored_path`` from a FileAttachment.
+    Only files belonging to that session are accessible.
+    """
+    try:
+        requested = Path(url)
+        session_dir = Path(settings.UPLOAD_DIR) / str(session.user_id) / session.id
+        resolved = requested.resolve()
+
+        if not str(resolved).startswith(str(session_dir.resolve())):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: file does not belong to this session",
+            )
+
+        if not resolved.exists():
+            logger.warning("uploaded_file_not_found", path=str(resolved))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found",
+            )
+
+        logger.info(
+            "uploaded_file_served",
+            user_id=session.user_id,
+            session_id=session.id,
+            file_name=resolved.name,
+        )
+        return FileResponse(str(resolved))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("file_serve_failed", error=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
