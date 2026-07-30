@@ -21,12 +21,14 @@ class Message(BaseModel):
     Attributes:
         role: The role of the message sender (user or assistant).
         content: The content of the message.
+        files: Metadata of files uploaded with this message (JSON-serialized FileAttachment list).
     """
 
     model_config = {"extra": "ignore"}
 
     role: Literal["user", "assistant", "system"] = Field(..., description="The role of the message sender")
     content: str = Field(..., description="The content of the message", min_length=1)
+    files: list | None = Field(default=None, description="Metadata of files uploaded with this message")
 
     @field_validator("content")
     @classmethod

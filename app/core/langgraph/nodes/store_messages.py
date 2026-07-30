@@ -57,11 +57,17 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> Comm
     openai_msgs = cast(list[dict], convert_to_openai_messages(new_messages))
     asyncio.create_task(memory_service.add(user_id, openai_msgs, metadata))
 
+    # Serialize uploaded file metadata for the message table
+    file_dicts = [f.model_dump() for f in state.uploaded_files] if state.uploaded_files else None
+
     # Store only user/assistant messages to SQL (for conversation history)
     sql_messages = []
     for msg in new_messages:
         if isinstance(msg, HumanMessage) and msg.content:
-            sql_messages.append({"role": "user", "content": str(msg.content)})
+            entry: dict = {"role": "user", "content": str(msg.content)}
+            if file_dicts:
+                entry["files"] = file_dicts
+            sql_messages.append(entry)
         elif isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
             sql_messages.append({"role": "assistant", "content": str(msg.content)})
 
@@ -81,4 +87,4 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> Comm
     if conversation_text.strip():
         skill_profile_service.schedule_update(int(user_id), conversation_text)
 
-    return Command(update={}, goto="summarization")
+    return Command(update={"uploaded_files": []}, goto="summarization")

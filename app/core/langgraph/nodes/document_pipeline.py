@@ -81,4 +81,4 @@ async def document_pipeline_node(state: GraphState, config: RunnableConfig) -> C
                 file_name=attachment.original_name,
             )
 
-    return Command(update={"pending_files": []}, goto="chat")
+    return Command(update={"pending_files": [], "uploaded_files": pending}, goto="chat")

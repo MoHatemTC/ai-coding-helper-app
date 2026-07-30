@@ -207,6 +207,7 @@ async def get_session_messages(
             MessageSchema(
                 role=msg.role,  # type: ignore[arg-type]
                 content=msg.message,
+                files=msg.files,
             )
             for msg in db_messages
         ]

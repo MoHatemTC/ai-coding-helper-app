@@ -37,6 +37,7 @@ class MessageService:
         for msg in messages:
             role = msg.get("role", "")
             content = msg.get("content", "")
+            files = msg.get("files")
             if not content or not role:
                 continue
             db_messages.append(
@@ -45,6 +46,7 @@ class MessageService:
                     session_id=session_id,
                     role=role,
                     message=content,
+                    files=files,
                 )
             )
 

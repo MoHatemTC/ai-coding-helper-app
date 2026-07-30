@@ -36,3 +36,8 @@ class GraphState(BaseModel):
         default_factory=list,
         description="Files uploaded but not yet processed by the document pipeline node",
     )
+
+    uploaded_files: list[FileAttachment] = Field(
+        default_factory=list,
+        description="File metadata for the current turn, consumed by store_messages",
+    )
