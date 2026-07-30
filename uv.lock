@@ -541,20 +541,6 @@ wheels = [
 ]
 
 [[package]]
-name = "duckduckgo-search"
-version = "8.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "lxml" },
-    { name = "primp" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/66/1f/8a66088ae1d7a68f40db9890642435cfff2b54701f47f19d5cc9404d5f65/duckduckgo_search-8.0.1.tar.gz", hash = "sha256:1d40d4425062a33dc72d19603e25ebf36b212bd8ef0662bff39fd47598226f6f", size = 21932, upload-time = "2025-04-17T12:37:34.671Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/a2/66adca41164860dee6d2d47b506fef3262c8879aab727b687c798d67313f/duckduckgo_search-8.0.1-py3-none-any.whl", hash = "sha256:87ea18d9abb1cd5dc8f63fc70ac867996acce2cb5e0129d191b9491c202420be", size = 18125, upload-time = "2025-04-17T12:37:30.782Z" },
-]
-
-[[package]]
 name = "ecdsa"
 version = "0.19.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1252,6 +1238,21 @@ wheels = [
 ]
 
 [[package]]
+name = "langchain-tavily"
+version = "0.2.17"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e6/32/f7b5487efbcd5fca5d4095f03dce7dcf0301ed81b2505d9888427c03619b/langchain_tavily-0.2.17.tar.gz", hash = "sha256:738abd790c50f19565023ad279c8e47e87e1aeb971797fec30a614b418ae6503", size = 25298, upload-time = "2026-01-18T13:09:04.112Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/35/f9/bb6f1cea2a19215e4169a3bcec3af707ff947cf62f6ef7d28e7280f03e29/langchain_tavily-0.2.17-py3-none-any.whl", hash = "sha256:da4e5e7e328d054dc70a9c934afa1d1e62038612106647ff81ad8bfbe3622256", size = 30734, upload-time = "2026-01-18T13:09:03.1Z" },
+]
+
+[[package]]
 name = "langchain-text-splitters"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1342,7 +1343,6 @@ dependencies = [
     { name = "bcrypt" },
     { name = "colorama" },
     { name = "ddgs" },
-    { name = "duckduckgo-search" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "langchain" },
@@ -1350,6 +1350,7 @@ dependencies = [
     { name = "langchain-core" },
     { name = "langchain-groq" },
     { name = "langchain-openai" },
+    { name = "langchain-tavily" },
     { name = "langfuse" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
@@ -1418,7 +1419,6 @@ requires-dist = [
     { name = "colorama", specifier = ">=0.4.6" },
     { name = "ddgs", specifier = ">=9.6.0" },
     { name = "djlint", marker = "extra == 'dev'", specifier = "==1.36.4" },
-    { name = "duckduckgo-search", specifier = ">=3.9.0" },
     { name = "email-validator", specifier = ">=2.2.0" },
     { name = "fastapi", specifier = ">=0.121.0" },
     { name = "flake8", marker = "extra == 'dev'" },
@@ -1428,6 +1428,7 @@ requires-dist = [
     { name = "langchain-core", specifier = ">=1.0.4" },
     { name = "langchain-groq", specifier = ">=1.0.1" },
     { name = "langchain-openai", specifier = ">=1.0.2" },
+    { name = "langchain-tavily", specifier = ">=0.2.2" },
     { name = "langfuse", specifier = "==3.9.1" },
     { name = "langgraph", specifier = ">=1.0.2" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.0.1" },
