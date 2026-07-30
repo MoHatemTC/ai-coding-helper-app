@@ -8,6 +8,6 @@ and other external integrations.
 from langchain_core.tools.base import BaseTool
 
 from .ask_human import ask_human
-from .duckduckgo_search import duckduckgo_search_tool
+from .tavily_search import tavily_search_tool
 
-tools: list[BaseTool] = [duckduckgo_search_tool, ask_human]
+tools: list[BaseTool] = [tavily_search_tool, ask_human]
