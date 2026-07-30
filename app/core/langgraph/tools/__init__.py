@@ -9,5 +9,10 @@ from langchain_core.tools.base import BaseTool
 
 from .ask_human import ask_human
 from .duckduckgo_search import duckduckgo_search_tool
+from .review_code import review_code
 
-tools: list[BaseTool] = [duckduckgo_search_tool, ask_human]
+tools: list[BaseTool] = [
+    duckduckgo_search_tool,
+    ask_human,
+    review_code,
+]
