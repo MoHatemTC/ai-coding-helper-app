@@ -58,9 +58,6 @@ EXTENSION_LANGUAGE_MAP: dict[str, str] = {
     ".zig": "zig",
     ".nim": "nim",
     ".dart": "dart",
-    ".txt": "text",
-    ".m": "objective-c",
-    ".mm": "objective-c",
 }
 
 
@@ -114,7 +111,7 @@ class DocumentService:
     ) -> FileAttachment:
         """Save an uploaded file to disk and return its metadata.
 
-        Files are stored at: ``{UPLOAD_DIR}/{user_id}/{session_id}/{file_id}``
+        Files are stored at: ``{UPLOAD_DIR}/{user_id}/{session_id}/{file_id}{ext}``
 
         Args:
             file: The uploaded file (must be validated first).
@@ -126,8 +123,9 @@ class DocumentService:
         """
         file_id = str(uuid.uuid4())
         language = DocumentService.detect_language(file.filename or "unnamed")
+        ext = Path(file.filename or "").suffix.lower()
 
-        upload_path = Path(settings.UPLOAD_DIR) / str(user_id) / session_id / file_id
+        upload_path = Path(settings.UPLOAD_DIR) / str(user_id) / session_id / f"{file_id}{ext}"
         upload_path.parent.mkdir(parents=True, exist_ok=True)
 
         content = await file.read()

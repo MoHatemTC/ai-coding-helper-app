@@ -25,6 +25,8 @@ class CodeChunk(BaseModel, table=True):
         created_at: When the chunk was created (inherited from BaseModel)
     """
 
+    __tablename__ = "code_chunk"  # type: ignore[assignment]
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     user_id: int = Field(foreign_key="user.id", nullable=False)
     session_id: str = Field(foreign_key="session.id", nullable=False)

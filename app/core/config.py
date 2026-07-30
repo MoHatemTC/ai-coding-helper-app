@@ -175,7 +175,6 @@ class Settings:
             "ALLOWED_EXTENSIONS",
             [
                 ".py",
-                ".txt",
                 ".cpp",
                 ".cxx",
                 ".hpp",
@@ -195,8 +194,6 @@ class Settings:
                 ".kt",
                 ".scala",
                 ".r",
-                ".m",
-                ".mm",
                 ".sql",
                 ".sh",
                 ".bash",
@@ -227,7 +224,7 @@ class Settings:
             ],
         )
         self.TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
-        self.EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "Salesforce/SFR-Embedding-Code-400M_R")
+        self.EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
         self.EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
         self.MCP_SERVER_TRANSPORT = os.getenv("MCP_SERVER_TRANSPORT", "stdio")
 
