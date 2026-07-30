@@ -60,7 +60,6 @@ async def document_pipeline_node(state: GraphState, config: RunnableConfig) -> C
                     language=language,
                     content=chunk_text,
                     embedding=None,
-                    chunk_metadata={},
                 )
                 for chunk_text in chunk_texts
             ]

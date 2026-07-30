@@ -109,7 +109,7 @@ class VectorStoreService:
         stmt = text(
             f"""
             SELECT ch.id, ch.user_id, ch.session_id, ch.file_id,
-                   ch.file_name, ch.language, ch.content, ch.chunk_metadata,
+                   ch.file_name, ch.language, ch.content,
                    ch.embedding, ch.created_at,
                    (ch.embedding <=> :query_vec::vector) AS distance
             FROM code_chunk ch
@@ -134,7 +134,6 @@ class VectorStoreService:
                     file_name=row.file_name,
                     language=row.language,
                     content=row.content,
-                    chunk_metadata=row.chunk_metadata or {},
                     embedding=row.embedding,
                     created_at=row.created_at,
                 )

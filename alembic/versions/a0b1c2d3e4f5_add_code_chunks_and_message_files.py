@@ -42,7 +42,6 @@ def upgrade() -> None:
             sa.types.UserDefinedType("vector(768)"),
             nullable=True,
         ),
-        sa.Column("chunk_metadata", sa.JSON(), nullable=False, server_default="{}"),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
         sa.ForeignKeyConstraint(["session_id"], ["session.id"]),

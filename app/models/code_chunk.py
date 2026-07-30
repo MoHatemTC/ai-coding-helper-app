@@ -4,7 +4,6 @@ from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, Text
-from sqlalchemy.dialects.postgresql import JSON
 from sqlmodel import Field
 
 from app.core.config import settings
@@ -23,7 +22,6 @@ class CodeChunk(BaseModel, table=True):
         language: Detected programming language
         content: The chunk text extracted by the code splitter
         embedding: pgvector embedding vector (768d)
-        chunk_metadata: JSONB blob from llamaIndex CodeSplitter (start_line, end_line, etc.)
         created_at: When the chunk was created (inherited from BaseModel)
     """
 
@@ -37,4 +35,3 @@ class CodeChunk(BaseModel, table=True):
     embedding: list[float] | None = Field(
         default=None, sa_column=Column(Vector(settings.EMBEDDING_DIM), nullable=True)
     )
-    chunk_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False, server_default="{}"))
