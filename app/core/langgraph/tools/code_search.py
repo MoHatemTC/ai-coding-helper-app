@@ -1,6 +1,7 @@
 """Code search tool for retrieving relevant code chunks from pgvector."""
 
 import contextvars
+from app.core.logging import logger
 
 from langchain_core.tools import tool
 
@@ -39,6 +40,7 @@ def search_code(query: str, file_name: str | None = None) -> str:
     Returns:
         Formatted string of matching code chunks with file info and content.
     """
+    logger.info("search_code_tool_invoked", query=query, file_name=file_name)
     session_id = current_session_id.get()
     if not session_id:
         return "Error: no active session"
@@ -62,4 +64,8 @@ def search_code(query: str, file_name: str | None = None) -> str:
         header = f"[{chunk.file_name} ({chunk.language})] created: {chunk.created_at.isoformat() if chunk.created_at else 'unknown'}"
         lines.append(f"{header}\n```\n{chunk.content}\n```")
 
+    print("===================== SEARCH RESULTS =====================")
+    print("\n".join(lines))
+    print("=========================================================")
+    logger.info("search_code_tool_completed", result_count=len(results))
     return "\n---\n".join(lines)

@@ -113,7 +113,7 @@ class VectorStoreService:
             SELECT ch.id, ch.user_id, ch.session_id, ch.file_id,
                    ch.file_name, ch.language, ch.content,
                    ch.embedding, ch.created_at,
-                   (ch.embedding <=> :query_vec::vector) AS distance
+                    (ch.embedding <=> CAST(:query_vec AS vector)) AS distance
             FROM code_chunk ch
             WHERE {where_clause}
             ORDER BY distance ASC

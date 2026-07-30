@@ -96,6 +96,11 @@ async def chat(
         )
 
         pending_files = await _process_files(files, session)
+        if pending_files:
+            file_details = "\n".join(
+                f"  - {f.original_name} (language: {f.language}, file_id: {f.file_id})" for f in pending_files
+            )
+            message = f"{message}\n\nUploaded files:\n{file_details}"
         user_message = MessageSchema(role="user", content=message)
 
         if settings.SESSION_NAMING_ENABLED:
@@ -140,6 +145,11 @@ async def chat_stream(
         )
 
         pending_files = await _process_files(files, session)
+        if pending_files:
+            file_details = "\n".join(
+                f"  - {f.original_name} (language: {f.language}, file_id: {f.file_id})" for f in pending_files
+            )
+            message = f"{message}\n\nUploaded files:\n{file_details}"
 
         if settings.SESSION_NAMING_ENABLED:
             maybe_name_session(session.id, session.name, [message])
