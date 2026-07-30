@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from pgvector.sqlalchemy import Vector
 
 revision: str = "a0b1c2d3e4f5"  # pragma: allowlist secret
 down_revision: Union[str, None] = "e1a2b3c4d5f6"  # pragma: allowlist secret
@@ -39,7 +40,7 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column(
             "embedding",
-            sa.types.UserDefinedType("vector(768)"),
+            Vector(768),
             nullable=True,
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
