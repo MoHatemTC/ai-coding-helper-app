@@ -30,7 +30,7 @@ dependencies = [
     "prometheus-client>=0.19.0",
     "starlette-prometheus>=0.7.0",
     "asgiref>=3.8.1",
-    "duckduckgo-search>=3.9.0",
+    "langchain-tavily>=0.2.2",
     "langchain-community>=0.4.1",
     "tqdm>=4.67.1",
     "colorama>=0.4.6",
@@ -42,6 +42,7 @@ dependencies = [
     "alembic>=1.18.4",
     "langchain-groq>=1.0.1",
     "transformers>=5.14.0",
+    "mcp>=1.28.1",
 ]
 
 [project.optional-dependencies]
