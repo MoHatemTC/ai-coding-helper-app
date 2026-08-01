@@ -55,6 +55,7 @@ from app.core.langgraph.nodes.inbound_intent import inbound_intent_node
 from app.core.langgraph.nodes.outbound import SAFE_TIMEOUT_RESPONSE, outbound_node
 from app.core.langgraph.nodes.performance_node import performance_review_node
 from app.core.langgraph.nodes.security_review import security_review_node
+from app.core.langgraph.subagent import summarize_tool_output
 from app.core.langgraph.tools import tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
@@ -328,9 +329,12 @@ class LangGraphAgent:
     async def _tool_call(self, state: GraphState) -> Command:
         """Process tool calls from the last message.
 
+        Executes the tool, then routes to the subagent for condensation
+        before the result reaches the chat node.
+
         Reads: messages (last message's tool_calls)
         Writes: messages (one ToolMessage per call)
-        Routes to: "chat" (always -- the model gets a turn to use the result)
+        Routes to: "subagent" (always -- the subagent condenses before chat)
         """
         existing_messages = state.get("messages") or []
         last_message = existing_messages[-1] if existing_messages else None
@@ -350,7 +354,51 @@ class LangGraphAgent:
         else:
             outputs = list(await asyncio.gather(*[_execute_tool(tc) for tc in tool_calls]))
 
-        return Command(update={"messages": outputs}, goto="chat")
+        return Command(update={"messages": outputs}, goto="subagent")
+
+    async def _subagent_node(self, state: GraphState) -> Command:
+        """Condense raw tool output before it reaches the chat node.
+
+        This node sits between ``tool_call`` and ``chat``. It takes the
+        last batch of ToolMessages, runs each through the subagent LLM
+        (a cheap summarizer), and replaces the raw content with condensed
+        summaries. This preserves the main agent's context window.
+
+        Reads: messages (last ToolMessage contents)
+        Writes: messages (same messages with condensed content)
+        Routes to: "chat" (always)
+        """
+        existing_messages = state.get("messages") or []
+        user_query = state.get("user_query", "")
+
+        condensed = []
+        for msg in existing_messages:
+            if not isinstance(msg, ToolMessage):
+                condensed.append(msg)
+                continue
+
+            summary = await summarize_tool_output(
+                raw_output=str(msg.content),
+                tool_name=msg.name,
+                user_query=user_query,
+            )
+
+            condensed.append(
+                ToolMessage(
+                    content=summary,
+                    name=msg.name,
+                    tool_call_id=msg.tool_call_id,
+                )
+            )
+
+            logger.debug(
+                "subagent_condensed_tool_message",
+                tool_name=msg.name,
+                original_length=len(str(msg.content)),
+                condensed_length=len(summary),
+            )
+
+        return Command(update={"messages": condensed}, goto="chat")
 
     async def _outbound(self, state: GraphState) -> dict[str, Any]:
         """Run the outbound guardrail, then repair the persisted transcript if it blocks.
@@ -423,12 +471,15 @@ class LangGraphAgent:
                 # Hint escalation
                 graph_builder.add_node("hints", self._hints)
 
-                # Chat (single user-facing voice) + tool loop + outbound guardrail
+                # Subagent — condenses raw tool output before chat sees it
+                graph_builder.add_node("subagent", self._subagent_node, destinations=("chat",))
+
+                # Chat (single user-facing voice) + tool loop + subagent + outbound guardrail
                 graph_builder.add_node("chat", self._chat, destinations=("tool_call", "outbound"))
                 graph_builder.add_node(
                     "tool_call",
                     self._tool_call,
-                    destinations=("chat",),
+                    destinations=("subagent",),
                     retry_policy=RetryPolicy(max_attempts=3),
                 )
                 graph_builder.add_node("outbound", self._outbound)
