@@ -37,9 +37,9 @@ async def _invoke_outbound_judge(
 
 
 async def outbound_node(
-    state: dict[str, Any], primary_client: Any = None, fallback_client: Any = None
+    state: dict[str, Any], primary_client: Any = None
 ) -> dict[str, Any]:
-    """Evaluate a draft response, retrying once with a fallback model."""
+    """Evaluate a draft response before delivery."""
     raw_draft_response = state.get("draft_response", state.get("assistant_response", ""))
     raw_query = state.get("sanitized_query", "")
     raw_code = state.get("sanitized_code")
@@ -54,12 +54,11 @@ async def outbound_node(
         SystemMessage(content=OUTBOUND_SYSTEM_PROMPT),
         HumanMessage(content=user_payload),
     ]
-    primary = primary_client or llm_service
-    fallback = fallback_client or llm_service
+    client = primary_client or llm_service
     problem_id = state.get("problem_id")
 
     try:
-        decision = await _invoke_outbound_judge(primary, messages, timeout=2.5)
+        decision = await _invoke_outbound_judge(client, messages, timeout=2.5)
         logger.info(
             "outbound_primary_completed",
             problem_id=problem_id,
@@ -68,32 +67,17 @@ async def outbound_node(
         )
     except (asyncio.TimeoutError, Exception) as primary_error:
         error_type = "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
-        logger.warning(
-            "outbound_primary_failed_using_fallback",
+        logger.exception(
+            "outbound_failed_closed",
             problem_id=problem_id,
             error_type=error_type,
         )
-        try:
-            decision = await _invoke_outbound_judge(fallback, messages, timeout=1.5)
-            logger.info(
-                "outbound_fallback_completed",
-                problem_id=problem_id,
-                is_safe_output=decision.is_safe_output,
-                outbound_trigger_reason=decision.outbound_trigger_reason,
-            )
-        except (asyncio.TimeoutError, Exception) as fallback_error:
-            error_type = "TimeoutError" if isinstance(fallback_error, asyncio.TimeoutError) else type(fallback_error).__name__
-            logger.exception(
-                "outbound_fallback_failed_closed",
-                problem_id=problem_id,
-                error_type=error_type,
-            )
-            return {
-                "is_safe_output": False,
-                "outbound_trigger_reason": OutboundTriggerReason.EVALUATOR_ERROR,
-                "constructive_redirect": None,
-                "final_response": SAFE_TIMEOUT_RESPONSE,
-            }
+        return {
+            "is_safe_output": False,
+            "outbound_trigger_reason": OutboundTriggerReason.EVALUATOR_ERROR,
+            "constructive_redirect": None,
+            "final_response": SAFE_TIMEOUT_RESPONSE,
+        }
 
     final_response = draft_response if decision.is_safe_output else decision.constructive_redirect
     if not decision.is_safe_output:
