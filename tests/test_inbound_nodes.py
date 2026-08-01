@@ -79,14 +79,14 @@ class MockOffTopicJudgeClient:
         )
 
 
-async def run_pipeline(state: dict[str, Any], primary_client: Any, fallback_client: Any) -> dict[str, Any]:
+async def run_pipeline(state: dict[str, Any], primary_client: Any = None) -> dict[str, Any]:
     """Run DLP first and judge sanitized input only when DLP passes."""
     dlp_update = await inbound_dlp_node(state)
     pipeline_state = {**state, **dlp_update}
     if not dlp_update["is_safe_sensitive"]:
         return pipeline_state
 
-    intent_update = await inbound_intent_node(pipeline_state, primary_client, fallback_client)
+    intent_update = await inbound_intent_node(pipeline_state, primary_client)
     return {**pipeline_state, **intent_update}
 
 
@@ -95,7 +95,6 @@ async def test_legitimate_debug_request() -> None:
     """Allow a standard debugging request with a code snippet."""
     result = await run_pipeline(
         {"user_query": "Why does this function raise an IndexError?", "code": "items[4]"},
-        MockSuccessJudgeClient(),
         MockSuccessJudgeClient(),
     )
 
@@ -108,7 +107,6 @@ async def test_dlp_commented_text_does_not_trigger() -> None:
     """Ignore credential-like text in Python comment lines."""
     result = await run_pipeline(
         {"user_query": "Can you review this code?", "code": '    # api_key = "placeholder"\nprint("safe")'},
-        MockSuccessJudgeClient(),
         MockSuccessJudgeClient(),
     )
 
@@ -124,7 +122,6 @@ async def test_dlp_python_identifiers_do_not_trigger_entropy() -> None:
             "code": "def process_financial_ledger(file_path: str):\n    return file_path\n",
         },
         MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
     )
 
     assert result["is_safe_sensitive"] is True
@@ -139,7 +136,6 @@ async def test_dlp_flags_long_high_entropy_secret_without_dashes() -> None:
             "code": 'secret_key = "a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4"',
         },
         MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
     )
 
     assert result["is_safe_sensitive"] is False
@@ -151,7 +147,6 @@ async def test_dlp_blocks_and_redacts_api_key() -> None:
     """Block and redact a real hardcoded API key."""
     result = await run_pipeline(
         {"user_query": "Can you review this configuration?", "code": 'api_key = "sk-abcdefghijklmnopqrstuvwx"'},
-        MockSuccessJudgeClient(),
         MockSuccessJudgeClient(),
     )
 
@@ -166,7 +161,6 @@ async def test_intent_blocks_solution_extraction() -> None:
     result = await run_pipeline(
         {"user_query": "Give me a complete ready-to-paste solution for this assignment."},
         MockBlockJudgeClient(),
-        MockSuccessJudgeClient(),
     )
 
     assert result["is_safe_intent"] is False
@@ -180,7 +174,6 @@ async def test_intent_blocks_off_topic_query() -> None:
     result = await run_pipeline(
         {"user_query": "Write an essay about ancient Roman architecture."},
         MockOffTopicJudgeClient(),
-        MockSuccessJudgeClient(),
     )
 
     assert result["is_safe_intent"] is False
@@ -188,35 +181,10 @@ async def test_intent_blocks_off_topic_query() -> None:
 
 
 @pytest.mark.asyncio
-async def test_intent_uses_fallback_client_on_primary_failure() -> None:
-    """Allow the request when the fallback evaluator succeeds."""
+async def test_intent_fails_closed_on_client_failure() -> None:
+    """Block the request when intent evaluator fails."""
     result = await run_pipeline(
         {"user_query": "Please explain this loop."},
-        MockFailingJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
-
-    assert result["is_safe_intent"] is True
-
-
-@pytest.mark.asyncio
-async def test_intent_uses_fallback_client_on_primary_timeout() -> None:
-    """Allow the request when primary times out but fallback evaluator succeeds."""
-    result = await run_pipeline(
-        {"user_query": "Please explain this loop."},
-        MockTimeoutJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
-
-    assert result["is_safe_intent"] is True
-
-
-@pytest.mark.asyncio
-async def test_intent_fails_closed_when_both_clients_fail() -> None:
-    """Block the request when neither intent evaluator is available."""
-    result = await run_pipeline(
-        {"user_query": "Please explain this loop."},
-        MockFailingJudgeClient(),
         MockFailingJudgeClient(),
     )
 
@@ -225,11 +193,10 @@ async def test_intent_fails_closed_when_both_clients_fail() -> None:
 
 
 @pytest.mark.asyncio
-async def test_intent_fails_closed_when_both_clients_timeout() -> None:
-    """Block the request when both intent evaluators time out."""
+async def test_intent_fails_closed_on_client_timeout() -> None:
+    """Block the request when intent evaluator times out."""
     result = await run_pipeline(
         {"user_query": "Please explain this loop."},
-        MockTimeoutJudgeClient(),
         MockTimeoutJudgeClient(),
     )
 
