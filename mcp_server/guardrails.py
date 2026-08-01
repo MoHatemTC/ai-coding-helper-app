@@ -69,11 +69,11 @@ PYTHON_INJECTION = re.compile(
 # Path traversal patterns
 PATH_TRAVERSAL = re.compile(
     r"(?:"
-    r"\.\.[/\\]"              # Unix: ../ or ..\
-    r"|\.\.%2f"               # URL-encoded: ..%2f
-    r"|%2e%2e%2f"             # Double URL-encoded: %2e%2e%2f
-    r"|~\.\."                 # Tilde-dot-dot
-    r"|\.\.\\\\"              # Windows: ..\\
+    r"\.\.[/\\]"  # Unix: ../ or ..\
+    r"|\.\.%2f"  # URL-encoded: ..%2f
+    r"|%2e%2e%2f"  # Double URL-encoded: %2e%2e%2f
+    r"|~\.\."  # Tilde-dot-dot
+    r"|\.\.\\\\"  # Windows: ..\\
     r")",
     re.IGNORECASE,
 )
@@ -92,7 +92,7 @@ SQL_INJECTION = re.compile(
     r"|EXEC\s*\("
     r"|EXECUTE\s*\("
     r"|UNION\s+SELECT"
-    r"|--\s"                  # SQL comment injection
+    r"|--\s"  # SQL comment injection
     r"|;\s*DROP"
     r")",
     re.IGNORECASE,
@@ -168,7 +168,12 @@ PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # Database connection strings
     (re.compile(r"(?:postgresql|mysql|mongodb|redis|amqp)://[^\s]+"), "database_url"),
     # Private IPs
-    (re.compile(r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b"), "private_ip"),
+    (
+        re.compile(
+            r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b"
+        ),
+        "private_ip",
+    ),
     # Email addresses
     (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "email_address"),
     # Phone numbers
@@ -185,15 +190,15 @@ PII_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 # 3. SIZE & RESOURCE LIMITS
 # =========================================================================
 
-MAX_INPUT_LENGTH = 100_000       # 100k chars for general input
-MAX_CODE_LENGTH = 50_000         # 50k chars for code submissions
-MAX_QUERY_LENGTH = 5_000         # 5k chars for search queries
-MAX_USER_ID_LENGTH = 256         # 256 chars for user identifiers
-MAX_METADATA_SIZE = 10_000       # 10k chars for metadata JSON
-MAX_METADATA_DEPTH = 5           # 5 levels deep for nested metadata
-MAX_OUTPUT_LENGTH = 50_000       # 50k chars for tool output
-MAX_SEARCH_RESULTS = 20          # Max search results to return
-MAX_FINDINGS = 100               # Max findings per review
+MAX_INPUT_LENGTH = 100_000  # 100k chars for general input
+MAX_CODE_LENGTH = 50_000  # 50k chars for code submissions
+MAX_QUERY_LENGTH = 5_000  # 5k chars for search queries
+MAX_USER_ID_LENGTH = 256  # 256 chars for user identifiers
+MAX_METADATA_SIZE = 10_000  # 10k chars for metadata JSON
+MAX_METADATA_DEPTH = 5  # 5 levels deep for nested metadata
+MAX_OUTPUT_LENGTH = 50_000  # 50k chars for tool output
+MAX_SEARCH_RESULTS = 20  # Max search results to return
+MAX_FINDINGS = 100  # Max findings per review
 
 # =========================================================================
 # 4. RATE LIMITING
@@ -276,6 +281,13 @@ class GuardrailError(Exception):
     """
 
     def __init__(self, message: str, reason: str, field: str = "input") -> None:
+        """Initialize the guardrail error.
+
+        Args:
+            message: Human-readable error description.
+            reason: Machine-readable error reason code.
+            field: The input field that triggered the guardrail.
+        """
         self.reason = reason
         self.field = field
         super().__init__(message)
@@ -329,11 +341,13 @@ def check_pii(text: str, field_name: str = "input") -> list[dict[str, str]]:
     for pattern, pii_type in PII_PATTERNS:
         matches = pattern.findall(text)
         for match in matches:
-            detections.append({
-                "pattern": match[:20] + "..." if len(match) > 20 else match,
-                "type": pii_type,
-                "field": field_name,
-            })
+            detections.append(
+                {
+                    "pattern": match[:20] + "..." if len(match) > 20 else match,
+                    "type": pii_type,
+                    "field": field_name,
+                }
+            )
     return detections
 
 

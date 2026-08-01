@@ -25,8 +25,8 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from dotenv import load_dotenv
-from mcp_server.server import (
+from dotenv import load_dotenv  # noqa: E402  (imports follow sys.path setup)
+from mcp_server.server import (  # noqa: E402  (imports follow sys.path setup)
     memory_search,
     web_search,
 )
@@ -95,10 +95,7 @@ async def test_memory_search() -> None:
 
     # Search for the memory
     print("Searching memories about programming preferences...")
-    result = await memory_search(
-        user_id=user_id,
-        query="What programming languages does the user prefer?"
-    )
+    result = await memory_search(user_id=user_id, query="What programming languages does the user prefer?")
     print_result("memory_search", result)
 
 
@@ -146,7 +143,7 @@ async def main() -> int:
         return 1
 
     # Print configuration
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  OpenAI Base URL: {os.getenv('OPENAI_BASE_URL')}")
     print(f"  Default Model: {os.getenv('DEFAULT_LLM_MODEL', 'gpt-4')}")
     print(f"  Project Root: {project_root}")
@@ -168,6 +165,7 @@ async def main() -> int:
             results.append((test_name, f"❌ FAILED: {e}"))
             print(f"\n❌ Test failed with error: {e}")
             import traceback
+
             traceback.print_exc()
 
     # Print summary
@@ -181,7 +179,7 @@ async def main() -> int:
         print(f"\n❌ {failed} test(s) failed")
         return 1
     else:
-        print(f"\n✅ All tests passed!")
+        print("\n✅ All tests passed!")
         return 0
 
 

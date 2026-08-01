@@ -10,7 +10,7 @@ import sys
 # Suppress app logging
 sys.stderr = open("nul", "w")  # noqa: SIM115
 
-from mcp_server.guardrails import (
+from mcp_server.guardrails import (  # noqa: E402  (imports follow stderr suppression)
     GuardrailError,
     apply_input_guardrails,
     apply_output_guardrails,
@@ -18,7 +18,6 @@ from mcp_server.guardrails import (
     check_pii,
     check_metadata_safety,
     get_audit_log,
-    clear_audit_log,
 )
 
 passed = 0
@@ -26,6 +25,13 @@ failed = 0
 
 
 def test(name: str, condition: bool, detail: str = "") -> None:
+    """Record the outcome of a test assertion.
+
+    Args:
+        name: The test name.
+        condition: Whether the assertion passed.
+        detail: Optional additional detail to print.
+    """
     global passed, failed
     if condition:
         passed += 1
@@ -49,7 +55,7 @@ for label, payload in [
         check_injection_safety(payload, "test")
         test(label, False, "not blocked")
     except GuardrailError:
-        test(label, True, f"blocked")
+        test(label, True, "blocked")
 
 # === Test 2: PII detection ===
 print("\n=== Test 2: PII detection ===")
@@ -86,7 +92,7 @@ log = get_audit_log()
 test("audit_entries", len(log) > 0, f"{len(log)} entries recorded")
 
 # === Summary ===
-print(f"\n{'='*40}")
+print(f"\n{'=' * 40}")
 print(f"Results: {passed} passed, {failed} failed out of {passed + failed} tests")
 if failed == 0:
     print("ALL GUARDRAIL TESTS PASSED!")

@@ -7,7 +7,6 @@ Run with::
 Or register as a stdio MCP server in your Cline/VSCode config.
 """
 
-import os
 import sys
 
 # CRITICAL: Redirect stdout to stderr BEFORE any imports.
@@ -19,18 +18,17 @@ import sys
 _real_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-import json
-import traceback
-from typing import Any
+import json  # noqa: E402  (import order is intentional — see stdout redirect above)
+import traceback  # noqa: E402  (import order is intentional — see stdout redirect above)
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP  # noqa: E402  (import order is intentional)
 
-from app.core.langgraph.tools.tavily_search import tavily_search_tool
-from app.core.langgraph.tools.ask_human import ask_human as ask_human_tool
-from app.services.memory import memory_service
+from app.core.langgraph.tools.tavily_search import tavily_search_tool  # noqa: E402
+from app.core.langgraph.tools.ask_human import ask_human as ask_human_tool  # noqa: E402
+from app.services.memory import memory_service  # noqa: E402
 
 
-from mcp_server.guardrails import (
+from mcp_server.guardrails import (  # noqa: E402  (import order is intentional)
     GuardrailError,
     apply_input_guardrails,
     apply_output_guardrails,
@@ -53,7 +51,7 @@ Provides tools for:
 
 
 # ---------------------------------------------------------------------------
-# Tool: web_search
+# Tool: web_search  # noqa: ERA001
 # ---------------------------------------------------------------------------
 
 
@@ -94,7 +92,7 @@ async def web_search(query: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Tool: ask_human
+# Tool: ask_human  # noqa: ERA001
 # ---------------------------------------------------------------------------
 
 
@@ -134,7 +132,7 @@ async def ask_human(question: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Tool: memory_search
+# Tool: memory_search  # noqa: ERA001
 # ---------------------------------------------------------------------------
 
 
