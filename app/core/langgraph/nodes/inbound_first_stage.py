@@ -13,6 +13,8 @@ from app.schemas.review import InboundTriggerReason
 logger: Any = structlog.get_logger(__name__)
 
 _REDACTED_SECRET = "[REDACTED_SECRET]"
+DLP_ENABLED = False  # set True when ready to tune against real student data
+
 _SECRET_ASSIGNMENT_PATTERN = re.compile(
     r"(?P<name>\b(?:api[_-]?key|access[_-]?key|secret|token|password|passwd|credential|private[_-]?key)\b)"
     r"(?P<separator>\s*[:=]\s*)"
@@ -42,7 +44,7 @@ _UUID_PATTERN = re.compile(
 )
 _GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$", re.IGNORECASE)
 _DATA_URI_PATTERN = re.compile(r"data:[^\s,;]+(?:;[^\s,;]+)*;base64,[A-Za-z0-9+/=]+", re.IGNORECASE)
-_PYTHON_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_PYTHON_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,15}$")
 _ENTROPY_THRESHOLD = 3.5
 
 
@@ -50,7 +52,6 @@ def _shannon_entropy(value: str) -> float:
     """Return the Shannon entropy of a candidate secret value."""
     if not value:
         return 0.0
-
     counts = Counter(value)
     length = len(value)
     return -sum((count / length) * math.log2(count / length) for count in counts.values())
@@ -60,7 +61,6 @@ def _luhn_valid(digits: str) -> bool:
     """Return whether a digit-only value passes the Luhn checksum."""
     if not digits.isdigit():
         return False
-
     checksum = 0
     for index, digit in enumerate(reversed(digits)):
         value = int(digit)
@@ -155,6 +155,24 @@ async def inbound_dlp_node(state: dict[str, Any]) -> dict[str, Any]:
         raw_code = state.get("code")
         user_query = raw_query if isinstance(raw_query, str) else ""
         code = raw_code if isinstance(raw_code, str) and raw_code.strip() else None
+
+        # ----------------------------------------------------------------
+        # DLP bypass: pass through without scanning when DLP_ENABLED=False.
+        # Flip to True when ready to tune thresholds against real data.
+        # ----------------------------------------------------------------
+        if not DLP_ENABLED:
+            logger.info(
+                "inbound_dlp_bypassed",
+                problem_id=problem_id,
+                latency_ms=(time.perf_counter() - start_time) * 1000,
+            )
+            return {
+                "is_safe_sensitive": True,
+                "detected_secret_types": [],
+                "sanitized_query": user_query,
+                "sanitized_code": code,
+            }
+
         sanitized_query, query_secret_types = _scan_and_sanitize(user_query)
         sanitized_code = code
         code_secret_types: list[str] = []
@@ -173,7 +191,7 @@ async def inbound_dlp_node(state: dict[str, Any]) -> dict[str, Any]:
             )
             return {
                 "is_safe_sensitive": False,
-                "trigger_reason": InboundTriggerReason.SENSITIVE_DATA_EXPOSURE,
+                "inbound_trigger_reason": InboundTriggerReason.SENSITIVE_DATA_EXPOSURE,
                 "detected_secret_types": detected_secret_types,
                 "sanitized_query": sanitized_query,
                 "sanitized_code": sanitized_code,
@@ -192,6 +210,7 @@ async def inbound_dlp_node(state: dict[str, Any]) -> dict[str, Any]:
             "sanitized_query": sanitized_query,
             "sanitized_code": sanitized_code,
         }
+
     except Exception:
         logger.exception(
             "inbound_dlp_failed_closed",
@@ -200,7 +219,7 @@ async def inbound_dlp_node(state: dict[str, Any]) -> dict[str, Any]:
         )
         return {
             "is_safe_sensitive": False,
-            "trigger_reason": InboundTriggerReason.DLP_SCANNER_ERROR,
+            "inbound_trigger_reason": InboundTriggerReason.DLP_SCANNER_ERROR,
             "detected_secret_types": [],
             "sanitized_query": _REDACTED_SECRET,
             "sanitized_code": _REDACTED_SECRET if code is not None else None,

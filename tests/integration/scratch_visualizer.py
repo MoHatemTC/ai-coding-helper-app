@@ -133,7 +133,7 @@ async def run_pipeline_with_guardrails(payload: dict[str, Any]) -> dict[str, Any
     intent_output = await inbound_intent_node(merged_state)
     final_state = {**merged_state, **intent_output}
     if not final_state.get("is_safe_intent", True):
-        trigger = final_state.get("trigger_reason")
+        trigger = final_state.get("inbound_trigger_reason")
         redirect_msg = final_state.get("constructive_redirect")
         if trigger == InboundTriggerReason.SOLUTION_EXTRACTION:
             st.warning("💡 **Mentor Advice: Share Your Progress**")
