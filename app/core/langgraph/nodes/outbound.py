@@ -36,9 +36,7 @@ async def _invoke_outbound_judge(
     return response if isinstance(response, OutboundJudgeOutput) else OutboundJudgeOutput.model_validate(response)
 
 
-async def outbound_node(
-    state: dict[str, Any], primary_client: Any = None
-) -> dict[str, Any]:
+async def outbound_node(state: dict[str, Any], primary_client: Any = None) -> dict[str, Any]:
     """Evaluate a draft response before delivery."""
     raw_draft_response = state.get("draft_response", state.get("assistant_response", ""))
     raw_query = state.get("sanitized_query", "")
@@ -66,7 +64,9 @@ async def outbound_node(
             outbound_trigger_reason=decision.outbound_trigger_reason,
         )
     except (asyncio.TimeoutError, Exception) as primary_error:
-        error_type = "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
+        error_type = (
+            "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
+        )
         logger.exception(
             "outbound_failed_closed",
             problem_id=problem_id,

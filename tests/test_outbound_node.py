@@ -112,4 +112,3 @@ async def test_outbound_fails_closed_on_client_timeout() -> None:
     assert result["is_safe_output"] is False
     assert result["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
     assert result["final_response"] == SAFE_TIMEOUT_RESPONSE
-

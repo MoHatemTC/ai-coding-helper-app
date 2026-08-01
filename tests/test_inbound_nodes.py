@@ -106,7 +106,10 @@ async def test_legitimate_debug_request() -> None:
 async def test_dlp_commented_text_does_not_trigger() -> None:
     """Ignore credential-like text in Python comment lines."""
     result = await run_pipeline(
-        {"user_query": "Can you review this code?", "code": '    # api_key = "placeholder"\nprint("safe")'},
+        {
+            "user_query": "Can you review this code?",
+            "code": '    # api_key = "placeholder"\nprint("safe")',  # pragma: allowlist secret
+        },
         MockSuccessJudgeClient(),
     )
 
@@ -133,7 +136,7 @@ async def test_dlp_flags_long_high_entropy_secret_without_dashes() -> None:
     result = await run_pipeline(
         {
             "user_query": "Can you review this code?",
-            "code": 'secret_key = "a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4"',
+            "code": 'secret_key = "a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4"',  # pragma: allowlist secret
         },
         MockSuccessJudgeClient(),
     )
@@ -146,7 +149,10 @@ async def test_dlp_flags_long_high_entropy_secret_without_dashes() -> None:
 async def test_dlp_blocks_and_redacts_api_key() -> None:
     """Block and redact a real hardcoded API key."""
     result = await run_pipeline(
-        {"user_query": "Can you review this configuration?", "code": 'api_key = "sk-abcdefghijklmnopqrstuvwx"'},
+        {
+            "user_query": "Can you review this configuration?",
+            "code": 'api_key = "sk-abcdefghijklmnopqrstuvwx"',  # pragma: allowlist secret
+        },
         MockSuccessJudgeClient(),
     )
 
@@ -202,4 +208,3 @@ async def test_intent_fails_closed_on_client_timeout() -> None:
 
     assert result["is_safe_intent"] is False
     assert result["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
-

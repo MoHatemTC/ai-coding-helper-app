@@ -13,7 +13,9 @@ from app.services.llm import llm_service
 logger: Any = structlog.get_logger(__name__)
 
 
-async def _invoke_intent_judge(client: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 2.5) -> InboundIntentJudgeOutput:
+async def _invoke_intent_judge(
+    client: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 2.5
+) -> InboundIntentJudgeOutput:
     """Invoke one client and validate its structured intent decision."""
     if hasattr(client, "call"):
         response: Any = await asyncio.wait_for(
@@ -33,9 +35,7 @@ async def _invoke_intent_judge(client: Any, messages: list[SystemMessage | Human
     )
 
 
-async def inbound_intent_node(
-    state: dict[str, Any], primary_client: Any = None
-) -> dict[str, Any]:
+async def inbound_intent_node(state: dict[str, Any], primary_client: Any = None) -> dict[str, Any]:
     """Classify sanitized inbound intent."""
     raw_query = state.get("sanitized_query", "")
     raw_code = state.get("sanitized_code")
@@ -56,7 +56,9 @@ async def inbound_intent_node(
         decision = await _invoke_intent_judge(client, messages, timeout=2.5)
         logger.info("inbound_intent_primary_completed", problem_id=problem_id, is_safe_intent=decision.is_safe_intent)
     except (asyncio.TimeoutError, Exception) as primary_error:
-        error_type = "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
+        error_type = (
+            "TimeoutError" if isinstance(primary_error, asyncio.TimeoutError) else type(primary_error).__name__
+        )
         logger.exception(
             "inbound_intent_failed_closed",
             problem_id=problem_id,

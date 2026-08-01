@@ -21,6 +21,7 @@ from app.schemas.review import (
     Severity,
 )
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
