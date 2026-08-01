@@ -21,6 +21,7 @@ from mcp.client.stdio import stdio_client
 
 
 async def main():
+    """Run the manual MCP client, list tools, and call a selected tool."""
     import argparse
 
     parser = argparse.ArgumentParser(description="Manual MCP client for testing tools")
@@ -33,7 +34,14 @@ async def main():
 
     server_params = StdioServerParameters(
         command="uv",
-        args=["run", "--project", "d:\\Programming\\Sprints\\ai-coding-helper-app", "python", "-m", "mcp_server.server"],
+        args=[
+            "run",
+            "--project",
+            "d:\\Programming\\Sprints\\ai-coding-helper-app",
+            "python",
+            "-m",
+            "mcp_server.server",
+        ],
         env=None,
     )
 
