@@ -69,7 +69,6 @@ async def test_outbound_allows_conceptual_hint() -> None:
     result = await outbound_node(
         {"sanitized_query": "How should I approach this loop?", "draft_response": draft_response},
         MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
     )
 
     assert result["is_safe_output"] is True
@@ -82,7 +81,6 @@ async def test_outbound_blocks_full_code_leak() -> None:
     result = await outbound_node(
         {"sanitized_query": "Solve my assignment.", "draft_response": "def complete_solution(): pass"},
         MockBlockJudgeClient(),
-        MockSuccessJudgeClient(),
     )
 
     assert result["is_safe_output"] is False
@@ -91,35 +89,10 @@ async def test_outbound_blocks_full_code_leak() -> None:
 
 
 @pytest.mark.asyncio
-async def test_outbound_uses_fallback_client_on_primary_failure() -> None:
-    """Allow the response when the fallback evaluator succeeds."""
+async def test_outbound_fails_closed_on_client_failure() -> None:
+    """Block the response when the outbound evaluator fails."""
     result = await outbound_node(
         {"draft_response": "Try tracing the values after each iteration."},
-        MockFailingJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
-
-    assert result["is_safe_output"] is True
-
-
-@pytest.mark.asyncio
-async def test_outbound_uses_fallback_client_on_primary_timeout() -> None:
-    """Allow the response when primary times out but fallback evaluator succeeds."""
-    result = await outbound_node(
-        {"draft_response": "Try tracing the values after each iteration."},
-        MockTimeoutJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
-
-    assert result["is_safe_output"] is True
-
-
-@pytest.mark.asyncio
-async def test_outbound_fails_closed_when_both_clients_fail() -> None:
-    """Block the response when neither outbound evaluator is available."""
-    result = await outbound_node(
-        {"draft_response": "Try tracing the values after each iteration."},
-        MockFailingJudgeClient(),
         MockFailingJudgeClient(),
     )
 
@@ -129,11 +102,10 @@ async def test_outbound_fails_closed_when_both_clients_fail() -> None:
 
 
 @pytest.mark.asyncio
-async def test_outbound_fails_closed_when_both_clients_timeout() -> None:
-    """Block the response when both outbound evaluators time out."""
+async def test_outbound_fails_closed_on_client_timeout() -> None:
+    """Block the response when the outbound evaluator times out."""
     result = await outbound_node(
         {"draft_response": "Try tracing the values after each iteration."},
-        MockTimeoutJudgeClient(),
         MockTimeoutJudgeClient(),
     )
 
