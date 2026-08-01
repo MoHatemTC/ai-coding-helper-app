@@ -94,11 +94,13 @@ class SimpleTTLCache:
     """Basic TTL cache fallback if cachetools is unavailable."""
 
     def __init__(self, maxsize: int = 100, ttl: float = 3600.0) -> None:
+        """Initialize TTL cache."""
         self.maxsize = maxsize
         self.ttl = ttl
         self._data: Dict[str, Tuple[float, Any]] = {}
 
     def __setitem__(self, key: str, value: Any) -> None:
+        """Set a value in cache with TTL."""
         # TODO: add locking around self._documents / session cache mutation once
         # integration architecture (sync vs. async, concurrency model) is decided.
         now = time.time()
@@ -113,6 +115,7 @@ class SimpleTTLCache:
         self._data[key] = (now, value)
 
     def __getitem__(self, key: str) -> Any:
+        """Get a value from cache."""
         now = time.time()
         if key not in self._data:
             raise KeyError(key)
@@ -123,6 +126,7 @@ class SimpleTTLCache:
         return val
 
     def __contains__(self, key: str) -> bool:
+        """Check if a key exists in the cache."""
         try:
             _ = self[key]
             return True
@@ -130,6 +134,7 @@ class SimpleTTLCache:
             return False
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Get a value from cache or return default if not found."""
         try:
             return self[key]
         except KeyError:
@@ -390,6 +395,7 @@ class BM25SearchService:
         cache_maxsize: int = 100,
         cache_ttl: int = 3600,
     ) -> None:
+        """Initialize BM25 search service."""
         self.k1 = k1
         self.b = b
         self.index_dir = index_dir
@@ -536,7 +542,7 @@ class BM25SearchService:
                 df[t] = df.get(t, 0) + 1
 
         scores: List[Tuple[str, float]] = []
-        for did, dt, dlen in zip(doc_ids, doc_tokens_list, doc_lens):
+        for did, dt, dlen in zip(doc_ids, doc_tokens_list, doc_lens, strict=False):
             score = 0.0
             term_counts: Dict[str, int] = {}
             for t in dt:
@@ -582,7 +588,7 @@ class BM25SearchService:
                 query_tokens = bm25s.tokenize([query])
                 doc_indices, scores = self._bm25_retriever.retrieve(query_tokens, k=min(top_k, len(self._documents)))
                 doc_ids = list(self._documents.keys())
-                for idx, score in zip(doc_indices[0], scores[0]):
+                for idx, score in zip(doc_indices[0], scores[0], strict=False):
                     if idx < len(doc_ids):
                         did = doc_ids[idx]
                         doc_info = self._documents[did]

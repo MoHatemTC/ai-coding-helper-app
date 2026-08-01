@@ -1,33 +1,33 @@
 """Tests for the performance/best-practice review node.
- 
+
 Three kinds of tests here:
- 
+
 1. Mocked tests (fast, free, run every time) — verify prompt-building and
    parsing logic without spending API credits or needing network access.
    `llm_service.call` is patched to return a fake, already-valid
    PerformanceReviewDraft.
- 
+
 2. Enum-enforcement tests — prove PerformanceIssueType/StyleSubtype are
    actually validated, not just documentation. An invalid subtype string
    must raise a ValidationError.
- 
+
 3. Real integration tests, marked `slow` — actually call the LLM to prove
    the whole chain works end to end, including that the model reliably
    picks a valid enum value. Skipped automatically if no API key is set.
- 
+
 No pytest-asyncio dependency required: async test bodies are run manually
 via asyncio.run() inside plain, synchronous test functions.
 """
- 
+
 from __future__ import annotations
- 
+
 import asyncio
 import os
 from unittest.mock import AsyncMock, patch
- 
+
 import pytest
 from pydantic import ValidationError
- 
+
 from app.core.langgraph.nodes.performance_node import (
     Category,
     Finding,
@@ -39,11 +39,11 @@ from app.core.langgraph.nodes.performance_node import (
     _number_lines,
     run_performance_review,
 )
- 
+
 # ---------------------------------------------------------------------------
 # Sample code snippets covering both categories this lane emits.
 # ---------------------------------------------------------------------------
- 
+
 PERFORMANCE_ISSUE_CODE = """def find_duplicates(items):
     duplicates = []
     for i in range(len(items)):
@@ -52,14 +52,14 @@ PERFORMANCE_ISSUE_CODE = """def find_duplicates(items):
                 duplicates.append(items[i])
     return duplicates
 """
- 
+
 CODE_DUPLICATION_CODE = """def get_active_users(users):
     result = []
     for u in users:
         if u.is_active and u.email_verified and not u.is_banned:
             result.append(u)
     return result
- 
+
 def get_active_admins(users):
     result = []
     for u in users:
@@ -67,42 +67,42 @@ def get_active_admins(users):
             result.append(u)
     return result
 """
- 
+
 NAMING_ISSUE_CODE = """def f(x, y, z):
     a = x + y
     b = a * z
     return b
 """
- 
+
 CLEAN_CODE = """def add(a: int, b: int) -> int:
     \"\"\"Return the sum of two integers.\"\"\"
     return a + b
 """
- 
+
 EMPTY_CODE = ""
- 
- 
+
+
 def run_async(coro):
     """Small helper: run an async coroutine inside a plain sync test function."""
     return asyncio.run(coro)
- 
- 
+
+
 # ---------------------------------------------------------------------------
 # Unit-level tests — pure logic, no LLM call, no asyncio needed.
 # ---------------------------------------------------------------------------
- 
- 
+
+
 def test_number_lines_prefixes_each_line():
     """Verify that each source line is prefixed with its 1-based line number."""
     result = _number_lines("a\nb\nc")
     assert result == "1: a\n2: b\n3: c"
- 
- 
+
+
 def test_number_lines_handles_empty_string():
     """Verify that numbering an empty string returns an empty string."""
     assert _number_lines("") == ""
- 
- 
+
+
 def test_finding_requires_line_to_be_at_least_1():
     """Verify that Finding rejects line numbers smaller than one."""
     with pytest.raises(ValidationError):
@@ -113,15 +113,15 @@ def test_finding_requires_line_to_be_at_least_1():
             message="x",
             rationale="x",
         )
- 
- 
+
+
 # ---------------------------------------------------------------------------
 # Enum-enforcement tests — the actual fix for the "enums are decorative"
 # critique. These prove PerformanceIssueType/StyleSubtype are validated by
 # Pydantic, not just referenced in a docstring/prompt.
 # ---------------------------------------------------------------------------
- 
- 
+
+
 def test_invalid_issue_type_is_rejected():
     """Verify that invalid performance issue types are rejected.
 
@@ -137,8 +137,8 @@ def test_invalid_issue_type_is_rejected():
             message="x",
             rationale="x",
         )
- 
- 
+
+
 def test_invalid_style_subtype_is_rejected():
     """Verify that invalid style subtypes are rejected."""
     with pytest.raises(ValidationError):
@@ -150,8 +150,8 @@ def test_invalid_style_subtype_is_rejected():
             message="x",
             rationale="x",
         )
- 
- 
+
+
 def test_valid_issue_type_is_accepted():
     """Verify that valid performance issue types pass validation."""
     draft = PerformanceFindingDraft(
@@ -163,8 +163,8 @@ def test_valid_issue_type_is_accepted():
         rationale="x",
     )
     assert draft.issue_type == PerformanceIssueType.ALGORITHMIC_COMPLEXITY
- 
- 
+
+
 def test_valid_style_subtype_is_accepted():
     """Verify that valid style subtypes pass Pydantic validation."""
     draft = PerformanceFindingDraft(
@@ -176,15 +176,15 @@ def test_valid_style_subtype_is_accepted():
         rationale="x",
     )
     assert draft.style_subtype == StyleSubtype.BEST_PRACTICE
- 
- 
+
+
 # ---------------------------------------------------------------------------
 # Mocked tests — verify run_performance_review's plumbing without spending
 # API credits. We patch llm_service.call to return a canned, already-valid
 # PerformanceReviewDraft, and check the draft-to-Finding conversion.
 # ---------------------------------------------------------------------------
- 
- 
+
+
 def test_run_performance_review_folds_issue_type_into_message():
     """Verify that the issue type is included in the resulting finding message."""
     fake_draft = PerformanceReviewDraft(
@@ -199,25 +199,25 @@ def test_run_performance_review_folds_issue_type_into_message():
             )
         ]
     )
- 
+
     with patch(
         "app.core.langgraph.nodes.performance_node.llm_service.call",
         new=AsyncMock(return_value=fake_draft),
     ) as mock_call:
         findings = run_async(run_performance_review(PERFORMANCE_ISSUE_CODE, language="python"))
- 
+
     assert len(findings) == 1
     assert isinstance(findings[0], Finding)  # dropped down to the shared shape
     assert findings[0].category == Category.PERFORMANCE
     assert findings[0].line == 3
     assert findings[0].message.startswith("[algorithmic_complexity]")
- 
+
     # Confirm the node requests the VALIDATED draft shape, not the bare
     # shared Finding shape.
     _, kwargs = mock_call.call_args
     assert kwargs["response_format"] is PerformanceReviewDraft
- 
- 
+
+
 def test_run_performance_review_folds_style_subtype_into_message():
     """Verify that the style subtype is included in the resulting finding message."""
     fake_draft = PerformanceReviewDraft(
@@ -232,17 +232,17 @@ def test_run_performance_review_folds_style_subtype_into_message():
             )
         ]
     )
- 
+
     with patch(
         "app.core.langgraph.nodes.performance_node.llm_service.call",
         new=AsyncMock(return_value=fake_draft),
     ):
         findings = run_async(run_performance_review(CODE_DUPLICATION_CODE, language="python"))
- 
+
     assert findings[0].category == Category.STYLE
     assert findings[0].message.startswith("[best_practice]")
- 
- 
+
+
 def test_run_performance_review_handles_no_findings():
     """Verify that the review returns an empty result when no issues are found."""
     with patch(
@@ -250,10 +250,10 @@ def test_run_performance_review_handles_no_findings():
         new=AsyncMock(return_value=PerformanceReviewDraft(findings=[])),
     ):
         findings = run_async(run_performance_review(CLEAN_CODE, language="python"))
- 
+
     assert findings == []
- 
- 
+
+
 def test_run_performance_review_on_empty_code_does_not_crash():
     """Verify that reviewing an empty source file completes without errors."""
     with patch(
@@ -261,10 +261,10 @@ def test_run_performance_review_on_empty_code_does_not_crash():
         new=AsyncMock(return_value=PerformanceReviewDraft(findings=[])),
     ):
         findings = run_async(run_performance_review(EMPTY_CODE))
- 
+
     assert findings == []
- 
- 
+
+
 # ---------------------------------------------------------------------------
 # Real integration tests — actually call the LLM. Marked `slow`.
 # Skipped automatically if no API key is configured.
@@ -274,48 +274,46 @@ def test_run_performance_review_on_empty_code_does_not_crash():
 # run_baseline_with_openrouter.py to test against a free OpenRouter model
 # directly instead.
 # ---------------------------------------------------------------------------
- 
+
 requires_api_key = pytest.mark.skipif(
     not os.getenv("OPENAI_API_KEY"),
     reason="OPENAI_API_KEY not set — skipping real LLM call",
 )
- 
- 
+
+
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_flags_the_nested_loop():
     """Verify that the real LLM identifies the nested-loop performance issue."""
     findings = run_async(run_performance_review(PERFORMANCE_ISSUE_CODE, language="python"))
- 
+
     assert len(findings) >= 1, "expected at least one real finding for an O(n^2) snippet"
     assert any(f.category == Category.PERFORMANCE for f in findings)
- 
+
     for f in findings:
         assert f.line >= 1
- 
- 
+
+
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_flags_code_duplication_as_style():
     """Verify that the real LLM identifies code duplication as a style issue."""
     findings = run_async(run_performance_review(CODE_DUPLICATION_CODE, language="python"))
- 
+
     assert len(findings) >= 1
     assert any(f.category == Category.STYLE for f in findings), (
         "expected at least one style finding for near-duplicate functions"
     )
- 
- 
+
+
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_flags_bad_naming_as_style():
     """Verify that the real LLM identifies poor naming as a style issue."""
-
-
     findings = run_async(
         run_performance_review(
             NAMING_ISSUE_CODE,
-            language="python",   # <-- enforce stricter rule
+            language="python",  # <-- enforce stricter rule
         )
     )
 
@@ -325,15 +323,12 @@ def test_real_llm_flags_bad_naming_as_style():
     )
 
 
- 
- 
 @requires_api_key
 @pytest.mark.slow
 def test_real_llm_returns_little_or_nothing_for_clean_code():
     """Verify that the real LLM reports few or no findings for clean code."""
     findings = run_async(run_performance_review(CLEAN_CODE, language="python"))
- 
+
     # Not a hard assertion of zero findings (LLMs can be opinionated), but
     # clean, trivial code shouldn't generate a pile of noise.
     assert len(findings) <= 1
- 

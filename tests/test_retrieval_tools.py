@@ -6,10 +6,7 @@ import pytest
 from app.tools.retrieval_tools import (
     BM25SearchService,
     grep_search,
-    read_document,
     read_lines,
-    read_search_results,
-    search,
 )
 
 
@@ -62,9 +59,7 @@ def test_grep_search_and_read_lines(tmp_path: Path) -> None:
     """Test standalone grep_search and read_lines against temporary code files."""
     test_file = tmp_path / "example.py"
     test_file.write_text(
-        "def hello_world():\n"
-        "    print('Hello World')\n"
-        "    return True\n",
+        "def hello_world():\n    print('Hello World')\n    return True\n",
         encoding="utf-8",
     )
 
