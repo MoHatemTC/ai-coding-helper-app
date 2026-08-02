@@ -56,6 +56,11 @@ from app.core.langgraph.nodes.security_review import security_review_node
 from app.core.langgraph.subagent import summarize_tool_output
 from app.core.langgraph.tools import tools
 from app.core.langgraph.tools import agent_tools
+from mcp_server.guardrails import (
+    GuardrailError,
+    apply_input_guardrails,
+    apply_output_guardrails,
+)
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
 from app.core.observability import get_langfuse_callback_handler
@@ -378,7 +383,49 @@ class LangGraphAgent:
                     if isinstance(request_language, str) and request_language:
                         tool_args["language"] = request_language
 
+                # Apply the same input guardrails the MCP server uses
+                # (injection checks, size limits, PII detection, rate limit,
+                # audit logging) so the agent's tool calls are protected too.
+                # These are reused in-process rather than routing through the
+                # MCP stdio subprocess, because ask_human relies on LangGraph's
+                # interrupt() which cannot cross a process boundary.
+                try:
+                    apply_input_guardrails(
+                        tool_call["name"],
+                        tool_args,
+                        check_pii_flag=True,
+                    )
+                except GuardrailError as e:
+                    logger.warning(
+                        "agent_tool_input_blocked",
+                        tool_name=tool_call["name"],
+                        reason=e.reason,
+                        field=e.field,
+                    )
+                    return ToolMessage(
+                        content=json.dumps({"error": str(e), "reason": e.reason, "field": e.field}),
+                        name=tool_call["name"],
+                        tool_call_id=tool_call["id"],
+                    )
+
                 tool_result = await tool.ainvoke(tool_args)
+
+                # Apply output guardrails (PII redaction + truncation) before
+                # the subagent sees the raw output.
+                tool_result = apply_output_guardrails(str(tool_result), tool_name=tool_call["name"])
+
+                # Route tool output through the subagent to condense verbose
+                # results before they reach the main agent's reasoning loop
+                # (user -> agent -> subagent -> agent -> user). The ask_human
+                # tool returns the user's own verbatim response, which must be
+                # preserved exactly, so it bypasses condensation.
+                if tool_call["name"] != "ask_human":
+                    tool_result = await summarize_tool_output(
+                        str(tool_result),
+                        tool_call["name"],
+                        state_values.get("user_query", ""),
+                    )
+
                 return ToolMessage(
                     content=tool_result,
                     name=tool_call["name"],

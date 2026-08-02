@@ -11,6 +11,6 @@ from .ask_human import ask_human
 from .review_code import review_code
 from .tavily_search import tavily_search_tool
 
-agent_tools: list[BaseTool] = [tavily_search_tool, ask_human]
+agent_tools: list[BaseTool] = [t for t in [tavily_search_tool, ask_human] if t is not None]
 review_tools: list[BaseTool] = [review_code]
 tools: list[BaseTool] = [*agent_tools, *review_tools]

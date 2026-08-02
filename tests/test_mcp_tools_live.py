@@ -60,7 +60,7 @@ def print_result(tool_name: str, result: str) -> None:
 
 def check_env_vars() -> bool:
     """Check if required environment variables are set."""
-    required = ["OPENAI_API_KEY", "OPENAI_BASE_URL"]
+    required = ["LITELLM_API_KEY", "LITELLM_BASE_URL"]
     missing = [var for var in required if not os.getenv(var)]
 
     if missing:

@@ -4,7 +4,29 @@ This module sets up and configures Prometheus metrics for monitoring the applica
 """
 
 from prometheus_client import Counter, Histogram, Gauge
+from starlette.routing import Match
 from starlette_prometheus import metrics, PrometheusMiddleware
+
+
+def _patched_get_path_template(request):
+    """Patched get_path_template that handles _IncludedRouter objects.
+
+    The original starlette_prometheus middleware assumes every route has a
+    ``path`` attribute, but newer Starlette versions use ``_IncludedRouter``
+    objects (from ``include_router``) that don't have one. This patch skips
+    routes without a ``path`` attribute instead of crashing.
+    """
+    for route in request.app.routes:
+        match, _ = route.matches(request.scope)
+        if match == Match.FULL:
+            path = getattr(route, "path", None)
+            if path is not None:
+                return path, True
+    return request.url.path, False
+
+
+# Monkey-patch the broken method
+PrometheusMiddleware.get_path_template = staticmethod(_patched_get_path_template)
 
 # Request metrics
 http_requests_total = Counter("http_requests_total", "Total number of HTTP requests", ["method", "endpoint", "status"])
