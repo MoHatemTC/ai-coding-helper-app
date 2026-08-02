@@ -1,6 +1,5 @@
 """LLM model registry with pre-initialized instances."""
 
-import os
 from typing import (
     Any,
     Dict,

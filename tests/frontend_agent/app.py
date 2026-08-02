@@ -117,11 +117,7 @@ def display_history() -> None:
 st.title("ReAct Agent System Test")
 st.caption("Directly exercises the current LangGraph agent, PostgreSQL checkpoint/message storage, and mem0 memory.")
 
-missing_credentials = [
-    credential
-    for credential in ("LITELLM_API_KEY",)
-    if not os.getenv(credential)
-]
+missing_credentials = [credential for credential in ("LITELLM_API_KEY",) if not os.getenv(credential)]
 if missing_credentials:
     st.error("This system test requires the configured LLM and memory credentials before it can start.")
     st.code("Missing: " + ", ".join(missing_credentials))
@@ -134,7 +130,9 @@ except Exception as error:
     st.stop()
 
 if not sessions:
-    st.warning("No database sessions exist. Create a user and session through the API before running this system test.")
+    st.warning(
+        "No database sessions exist. Create a user and session through the API before running this system test."
+    )
     st.stop()
 
 with st.sidebar:

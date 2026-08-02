@@ -20,9 +20,7 @@ async def store_messages_node(state: dict[str, Any], config: RunnableConfig) -> 
         return {}
 
     messages = state.get("messages", [])
-    human_message = next(
-        (message for message in reversed(messages) if isinstance(message, HumanMessage)), None
-    )
+    human_message = next((message for message in reversed(messages) if isinstance(message, HumanMessage)), None)
     final_response = state.get("final_response", "")
     user_query_redacted = state.get("user_query_redacted", False)
     file_dicts = [attachment.model_dump() for attachment in state.get("uploaded_files", [])] or None
@@ -37,9 +35,7 @@ async def store_messages_node(state: dict[str, Any], config: RunnableConfig) -> 
         sql_messages.append({"role": "assistant", "content": final_response})
 
     if sql_messages:
-        await message_service.store_messages(
-            user_id=int(user_id), session_id=session_id, messages=sql_messages
-        )
+        await message_service.store_messages(user_id=int(user_id), session_id=session_id, messages=sql_messages)
 
     # Redacted human input remains available in the checkpoint but is never
     # promoted to semantic long-term memory. The approved assistant answer is.
@@ -51,9 +47,7 @@ async def store_messages_node(state: dict[str, Any], config: RunnableConfig) -> 
     if memory_messages:
         await memory_service.add(str(user_id), memory_messages, metadata)
 
-    conversation_text = "\n".join(
-        f"{message['role']}: {message['content']}" for message in memory_messages
-    )
+    conversation_text = "\n".join(f"{message['role']}: {message['content']}" for message in memory_messages)
     if conversation_text:
         skill_profile_service.schedule_update(int(user_id), conversation_text)
 
