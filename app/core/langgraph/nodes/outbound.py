@@ -7,6 +7,7 @@ import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.prompts.guardrails import OUTBOUND_SYSTEM_PROMPT
+from app.schemas import GraphState
 from app.schemas.review import OutboundJudgeOutput, OutboundTriggerReason
 from app.services.llm import llm_service
 
@@ -36,11 +37,11 @@ async def _invoke_outbound_judge(
     return response if isinstance(response, OutboundJudgeOutput) else OutboundJudgeOutput.model_validate(response)
 
 
-async def outbound_node(state: dict[str, Any], primary_client: Any = None) -> dict[str, Any]:
+async def outbound_node(state: GraphState, primary_client: Any = None) -> dict[str, Any]:
     """Evaluate a draft response before delivery."""
-    raw_draft_response = state.get("draft_response", state.get("assistant_response", ""))
-    raw_query = state.get("sanitized_query", "")
-    raw_code = state.get("sanitized_code")
+    raw_draft_response = state.draft_response or getattr(state, "assistant_response", "")
+    raw_query = getattr(state, "sanitized_query", "")
+    raw_code = getattr(state, "sanitized_code", None)
     draft_response = raw_draft_response if isinstance(raw_draft_response, str) else ""
     sanitized_query = raw_query if isinstance(raw_query, str) else ""
     sanitized_code = raw_code if isinstance(raw_code, str) and raw_code else None
@@ -53,7 +54,7 @@ async def outbound_node(state: dict[str, Any], primary_client: Any = None) -> di
         HumanMessage(content=user_payload),
     ]
     client = primary_client or llm_service
-    problem_id = state.get("problem_id")
+    problem_id = getattr(state, "problem_id", None)
 
     try:
         decision = await _invoke_outbound_judge(client, messages, timeout=2.5)

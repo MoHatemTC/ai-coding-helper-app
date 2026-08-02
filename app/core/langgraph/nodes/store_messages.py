@@ -6,12 +6,13 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 
 from app.core.logging import logger
+from app.schemas import GraphState
 from app.services.memory import memory_service
 from app.services.message import message_service
 from app.services.skill_profile import skill_profile_service
 
 
-async def store_messages_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
+async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict[str, Any]:
     """Persist only the sanitized user message and final approved assistant response."""
     metadata = config.get("metadata", {})
     user_id = metadata.get("user_id")
@@ -19,11 +20,11 @@ async def store_messages_node(state: dict[str, Any], config: RunnableConfig) -> 
     if not user_id or not session_id:
         return {}
 
-    messages = state.get("messages", [])
+    messages = state.messages
     human_message = next((message for message in reversed(messages) if isinstance(message, HumanMessage)), None)
-    final_response = state.get("final_response", "")
-    user_query_redacted = state.get("user_query_redacted", False)
-    file_dicts = [attachment.model_dump() for attachment in state.get("uploaded_files", [])] or None
+    final_response = state.final_response
+    user_query_redacted = state.user_query_redacted
+    file_dicts = [attachment.model_dump() for attachment in state.uploaded_files] or None
 
     sql_messages: list[dict[str, Any]] = []
     if human_message and human_message.content:

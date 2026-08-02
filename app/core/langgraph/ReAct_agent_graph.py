@@ -7,7 +7,6 @@ the checkpointer, and the public ReActAgent API.
 
 import asyncio
 from typing import (
-    Any,
     AsyncGenerator,
     Optional,
     cast,
@@ -83,31 +82,6 @@ _agent = create_agent(
 )
 
 
-async def _inbound_intent_graph_node(state: GraphState) -> dict[str, Any]:
-    """Adapt the dictionary-based guardrail node to the graph state schema."""
-    return await inbound_intent_node(cast(dict[str, Any], state))
-
-
-async def _collect_draft_graph_node(state: GraphState) -> dict[str, Any]:
-    """Adapt the draft collector to the graph state schema."""
-    return await collect_draft_node(cast(dict[str, Any], state))
-
-
-async def _outbound_graph_node(state: GraphState) -> dict[str, Any]:
-    """Adapt the outbound guardrail node to the graph state schema."""
-    return await outbound_node(cast(dict[str, Any], state))
-
-
-async def _reask_graph_node(state: GraphState) -> dict[str, Any]:
-    """Adapt the re-ask node to the graph state schema."""
-    return await reask_node(cast(dict[str, Any], state), _chat_model)
-
-
-async def _store_messages_graph_node(state: GraphState, config: RunnableConfig) -> dict[str, Any]:
-    """Adapt the persistence node to the graph state schema."""
-    return await store_messages_node(cast(dict[str, Any], state), config)
-
-
 class ReActAgent:
     """Manages the ReAct agent graph and interactions with the LLM."""
 
@@ -160,22 +134,31 @@ class ReActAgent:
         if self._graph is None:
             try:
                 graph_builder = StateGraph(GraphState)
-                graph_builder.add_node("inbound_intent", _inbound_intent_graph_node)
+
+                # Register all nodes first
+                graph_builder.add_node("inbound_intent", inbound_intent_node)
                 graph_builder.add_node("document_pipeline", document_pipeline_node)
                 graph_builder.add_node("agent", _agent)
-                graph_builder.add_node("collect_draft", _collect_draft_graph_node)
-                graph_builder.add_node("outbound", _outbound_graph_node)
-                graph_builder.add_node("reask", _reask_graph_node)
-                graph_builder.add_node("store_messages", _store_messages_graph_node)
+                graph_builder.add_node("collect_draft", collect_draft_node)
+                graph_builder.add_node("outbound", outbound_node)
+                graph_builder.add_node(
+                    "reask",
+                    lambda state: reask_node(cast(GraphState, state), _chat_model),
+                )
+                graph_builder.add_node("store_messages", store_messages_node)
                 graph_builder.add_node("summarization", summarization_node)
+                # Then edges
                 graph_builder.set_entry_point("inbound_intent")
-                graph_builder.add_edge("inbound_intent", "document_pipeline")
+                graph_builder.add_conditional_edges(
+                    "inbound_intent",
+                    lambda state: "document_pipeline" if state.is_safe_intent else "store_messages",
+                )
                 graph_builder.add_edge("document_pipeline", "agent")
                 graph_builder.add_edge("agent", "collect_draft")
                 graph_builder.add_edge("collect_draft", "outbound")
                 graph_builder.add_conditional_edges(
                     "outbound",
-                    lambda state: "reask" if not state.get("is_safe_output", True) else "store_messages",
+                    lambda state: "reask" if not state.is_safe_output else "store_messages",
                 )
                 graph_builder.add_edge("reask", "store_messages")
                 graph_builder.add_edge("store_messages", "summarization")
