@@ -8,6 +8,9 @@ and other external integrations.
 from langchain_core.tools.base import BaseTool
 
 from .ask_human import ask_human
+from .review_code import review_code
 from .tavily_search import tavily_search_tool
 
-tools: list[BaseTool] = [tavily_search_tool, ask_human]
+agent_tools: list[BaseTool] = [tavily_search_tool, ask_human]
+review_tools: list[BaseTool] = [review_code]
+tools: list[BaseTool] = [*agent_tools, *review_tools]

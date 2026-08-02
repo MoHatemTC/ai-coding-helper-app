@@ -117,6 +117,57 @@ async def test_dlp_python_identifiers_do_not_trigger_entropy() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dlp_allows_order_service_source_without_secrets() -> None:
+    """Allow ordinary application source that contains no credential material."""
+    code = """from dataclasses import dataclass, field
+from datetime import datetime
+
+@dataclass
+class Order:
+    id: int
+    user_id: int
+    total: float
+    status: str = "pending"
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+class OrderService:
+    def __init__(self, database):
+        self.database = database
+        self.cache = {}
+
+    def cancel_order(self, user_id, order_id):
+        order = self.database.orders.get(order_id)
+        if order is None:
+            raise ValueError("Order not found")
+        order.status = "cancelled"
+        return order
+"""
+    result = await run_pipeline(
+        {"user_query": "Identify the exact root problem only.", "code": code},
+        MockSuccessJudgeClient(),
+        MockSuccessJudgeClient(),
+    )
+
+    assert result["is_safe_sensitive"] is True
+
+
+@pytest.mark.asyncio
+async def test_dlp_blocks_contextual_unknown_token() -> None:
+    """Still block an unknown high-entropy value next to a credential marker."""
+    result = await run_pipeline(
+        {
+            "user_query": "Review this configuration.",
+            "code": 'authorization = "aB7xQ2mN9pL4rT8vY6kC3dF1"',
+        },
+        MockSuccessJudgeClient(),
+        MockSuccessJudgeClient(),
+    )
+
+    assert result["is_safe_sensitive"] is False
+    assert "high_entropy_token" in result["detected_secret_types"]
+
+
+@pytest.mark.asyncio
 async def test_dlp_blocks_and_redacts_api_key() -> None:
     """Block and redact a real hardcoded API key."""
     result = await run_pipeline(
