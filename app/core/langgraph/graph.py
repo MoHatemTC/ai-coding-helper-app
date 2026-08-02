@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import json
 from typing import (
     Any,
     AsyncGenerator,
@@ -13,7 +14,6 @@ from urllib.parse import quote_plus
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import (
     AIMessage,
-    AIMessageChunk,
     BaseMessage,
     ToolMessage,
     convert_to_openai_messages,
@@ -47,7 +47,13 @@ from app.core.config import (
     Environment,
     settings,
 )
-from app.core.langgraph.tools import tools
+from app.core.langgraph.nodes.inbound_first_stage import inbound_dlp_node
+from app.core.langgraph.nodes.inbound_intent import inbound_intent_node
+from app.core.langgraph.nodes.outbound import SAFE_TIMEOUT_RESPONSE, outbound_node
+from app.core.langgraph.nodes.correctness import correctness_node
+from app.core.langgraph.nodes.performance_node import performance_review_node
+from app.core.langgraph.nodes.security_review import security_review_node
+from app.core.langgraph.tools import agent_tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
 from app.core.observability import get_langfuse_callback_handler
@@ -56,6 +62,7 @@ from app.schemas import (
     GraphState,
     Message,
 )
+from app.schemas.review import InboundTriggerReason
 from app.services.llm import llm_service
 from app.services.memory import memory_service
 from app.utils import (
@@ -67,6 +74,68 @@ from app.utils import (
 
 PostgresConnPool = AsyncConnectionPool[AsyncConnection[DictRow]]
 
+_INBOUND_REDIRECT_TEMPLATES: dict[InboundTriggerReason, str] = {
+    InboundTriggerReason.SENSITIVE_DATA_EXPOSURE: (
+        "Please remove API keys, passwords, tokens, and other credentials from the code before sharing it. "
+        "I can then help you review the sanitized version."
+    ),
+    InboundTriggerReason.DLP_SCANNER_ERROR: (
+        "I couldn't safely inspect that submission. Please remove any credentials and try again with a sanitized "
+        "code snippet."
+    ),
+    InboundTriggerReason.SOLUTION_EXTRACTION: (
+        "Share your current attempt or the part you understand least, and I can guide you without providing a "
+        "ready-to-submit solution."
+    ),
+    InboundTriggerReason.OFF_TOPIC: "Please keep your question focused on software engineering or computer science.",
+    InboundTriggerReason.HARMFUL_ILLEGAL: (
+        "I can help with safe, defensive software engineering questions, debugging, and secure design."
+    ),
+    InboundTriggerReason.EVALUATOR_ERROR: (
+        "I couldn't safely classify that request. Please rephrase it as a specific software engineering or "
+        "debugging question."
+    ),
+}
+
+
+def _route_after_dlp(state: GraphState) -> str:
+    """Send DLP-safe requests to intent evaluation and block unsafe requests."""
+    return "inbound_intent" if state.get("is_safe_sensitive", False) else "guardrail_redirect"
+
+
+def _route_after_intent(state: GraphState) -> str | list[str]:
+    """Fan out to all review lanes only after the inbound intent check passes."""
+    if not state.get("is_safe_intent", False):
+        return "guardrail_redirect"
+    return ["review_correctness", "review_security", "review_performance"]
+
+
+_CATEGORY_PRIORITY = {"correctness": 0, "security": 1, "performance": 2, "style": 3}
+_SEVERITY_PRIORITY = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _review_priority(value: Any) -> str:
+    return str(getattr(value, "value", value)).lower()
+
+
+def _merge_review_findings(state: GraphState) -> dict[str, Any]:
+    """Merge parallel review lanes into ordered context for the agent."""
+    findings = list(state.get("findings") or [])
+    ordered_findings = sorted(
+        findings,
+        key=lambda finding: (
+            _CATEGORY_PRIORITY.get(_review_priority(finding.get("category")), 99),
+            _SEVERITY_PRIORITY.get(_review_priority(finding.get("severity")), 99),
+            finding.get("line", 0),
+        ),
+    )
+    return {"review_findings": ordered_findings, "review_complete": True}
+
+
+async def _correctness_review_lane(state: GraphState) -> dict[str, Any]:
+    """Run synchronous correctness analysis without blocking the event loop."""
+    return await asyncio.to_thread(correctness_node, state)
+
 
 class LangGraphAgent:
     """Manages the LangGraph Agent/workflow and interactions with the LLM.
@@ -77,10 +146,13 @@ class LangGraphAgent:
 
     def __init__(self):
         """Initialize the LangGraph Agent with necessary components."""
-        # Use the LLM service with tools bound
         self.llm_service = llm_service
-        self.llm_service.bind_tools(tools)
-        self.tools_by_name = {tool.name: tool for tool in tools}
+        # Tool binding belongs to this agent runtime. The shared LLM service
+        # only supplies the current unbound model instance.
+        self.agent_tools = list(agent_tools)
+        self.tools_by_name = {tool.name: tool for tool in self.agent_tools}
+        self._agent_model: Any = None
+        self._agent_model_source: Any = None
         self._connection_pool: Optional[PostgresConnPool] = None
         self._graph: Optional[CompiledStateGraph] = None
         logger.info(
@@ -129,8 +201,149 @@ class LangGraphAgent:
                 raise e
         return self._connection_pool
 
+    @staticmethod
+    def _sanitize_messages_for_agent(messages: list[Any], sanitized_query: str) -> list[Any]:
+        """Replace the latest human message with the DLP-sanitized query."""
+        sanitized_messages = list(messages)
+        for index in range(len(sanitized_messages) - 1, -1, -1):
+            message = sanitized_messages[index]
+            if isinstance(message, BaseMessage):
+                is_human = message.type in {"human", "user"}
+                if is_human:
+                    sanitized_messages[index] = message.model_copy(update={"content": sanitized_query})
+                    break
+            elif isinstance(message, dict):
+                role = message.get("role", message.get("type"))
+                if role in {"human", "user"}:
+                    sanitized_message = dict(message)
+                    sanitized_message["content"] = sanitized_query
+                    sanitized_messages[index] = sanitized_message
+                    break
+        return sanitized_messages
+
+    @staticmethod
+    def _ensure_syntax_blockers_in_response(
+        response_message: BaseMessage, state_messages: list[Any], review_findings: Optional[list[dict[str, Any]]] = None
+    ) -> BaseMessage:
+        """Preserve syntax blockers when the final model summary omits them."""
+        if not isinstance(response_message, AIMessage):
+            return response_message
+
+        for message in reversed(state_messages):
+            if not isinstance(message, ToolMessage) or message.name != "review_code":
+                continue
+            try:
+                review_payload = json.loads(extract_text_content(message.content))
+            except (TypeError, ValueError):
+                return response_message
+
+            syntax_blockers = review_payload.get("syntax_blockers", [])
+            if not syntax_blockers:
+                return response_message
+
+            response_text = extract_text_content(response_message.content)
+            if "syntax" in response_text.lower():
+                return response_message
+
+            blocker_lines = "\n".join(
+                f"- Line {finding.get('line', '?')}: {finding.get('message', 'Syntax error detected.')}"
+                for finding in syntax_blockers
+            )
+            response_message.content = (
+                "Syntax blockers (the program cannot run until these are addressed):\n"
+                f"{blocker_lines}\n\n{response_text}"
+            )
+            return response_message
+
+        lane_blockers = [
+            finding
+            for finding in (review_findings or [])
+            if _review_priority(finding.get("category")) == "correctness"
+            and "syntax" in str(finding.get("message", "")).lower()
+        ]
+        if lane_blockers:
+            response_text = extract_text_content(response_message.content)
+            if "syntax" not in response_text.lower():
+                blocker_lines = "\n".join(
+                    f"- Line {finding.get('line', '?')}: {finding.get('message', 'Syntax error detected.')}"
+                    for finding in lane_blockers
+                )
+                response_message.content = (
+                    "Syntax blockers (the program cannot run until these are addressed):\n"
+                    f"{blocker_lines}\n\n{response_text}"
+                )
+            return response_message
+
+        return response_message
+
+    async def _guardrail_redirect(self, state: GraphState) -> Command:
+        """Return a safe, deterministic response for an inbound-blocked turn."""
+        reason = state.get("inbound_trigger_reason")
+        template = _INBOUND_REDIRECT_TEMPLATES.get(
+            reason or InboundTriggerReason.EVALUATOR_ERROR,
+            _INBOUND_REDIRECT_TEMPLATES[InboundTriggerReason.EVALUATOR_ERROR],
+        )
+        response_text = state.get("constructive_redirect") or template
+        message_updates: list[Any] = []
+        existing_messages = list(state.get("messages") or [])
+        sanitized_query = state.get("sanitized_query")
+        if isinstance(sanitized_query, str) and existing_messages:
+            sanitized_messages = self._sanitize_messages_for_agent(existing_messages, sanitized_query)
+            for original, sanitized in zip(existing_messages, sanitized_messages):
+                if sanitized is not original:
+                    message_updates.append(sanitized)
+                    break
+        message_updates.append(AIMessage(content=response_text))
+        return Command(
+            update={"messages": message_updates, "final_response": response_text},
+            goto=END,
+        )
+
+    async def _outbound(self, state: GraphState) -> dict[str, Any]:
+        """Validate the draft and replace blocked text before checkpointing it."""
+        result = await outbound_node(cast(dict[str, Any], state))
+        if not result.get("is_safe_output", True):
+            existing_messages = state.get("messages") or []
+            draft_message = existing_messages[-1] if existing_messages else None
+            safe_text = result.get("final_response") or SAFE_TIMEOUT_RESPONSE
+            message_id = getattr(draft_message, "id", None)
+            result["messages"] = [
+                AIMessage(content=safe_text, id=message_id) if message_id else AIMessage(content=safe_text)
+            ]
+        return result
+
+    def _get_agent_model(self) -> Any:
+        """Return the current model with this agent's tools bound locally."""
+        source_model = self.llm_service.get_llm()
+        if source_model is None:
+            return None
+        if source_model is not self._agent_model_source:
+            bind_tools = getattr(source_model, "bind_tools", None)
+            self._agent_model = bind_tools(self.agent_tools) if callable(bind_tools) else source_model
+            self._agent_model_source = source_model
+        return self._agent_model
+
+    async def _call_agent_model(self, messages: Any) -> BaseMessage:
+        """Invoke the locally tool-bound model, with a test-service fallback."""
+        agent_model = self._get_agent_model()
+        if agent_model is not None and hasattr(agent_model, "ainvoke"):
+            return cast(BaseMessage, await agent_model.ainvoke(messages))
+        return cast(BaseMessage, await self.llm_service.call(messages))
+
+    async def _inbound_memory_query(self, messages: list[Message], code: Optional[str]) -> str:
+        """Return a DLP-sanitized query for memory search before graph execution."""
+        latest_user_text = messages[-1].content if messages else ""
+        problem_id = hashlib.sha256(code.encode("utf-8")).hexdigest()[:16] if code else None
+        dlp_result = await inbound_dlp_node(
+            {"user_query": latest_user_text, "code": code, "problem_id": problem_id}
+        )
+        if not dlp_result.get("is_safe_sensitive", False):
+            return ""
+        sanitized_query = dlp_result.get("sanitized_query")
+        return sanitized_query if isinstance(sanitized_query, str) else ""
+
     async def _agent(self, state: GraphState | dict[str, Any], config: RunnableConfig) -> Command:
-        """Run one decision step of the single agent-owned loop.
+        """Run one ReAct decision step owned by this agent.
 
         The graph intentionally has only this node. A model response containing
         tool calls is committed first and routes back to this node; the next
@@ -157,7 +370,13 @@ class LangGraphAgent:
                 if tool is None:
                     raise ValueError(f"unknown tool requested: {tool_call['name']}")
 
-                tool_result = await tool.ainvoke(tool_call["args"])
+                tool_args = dict(tool_call["args"])
+                if tool_call["name"] == "review_code" and not tool_args.get("language"):
+                    request_language = state_values.get("language")
+                    if isinstance(request_language, str) and request_language:
+                        tool_args["language"] = request_language
+
+                tool_result = await tool.ainvoke(tool_args)
                 return ToolMessage(
                     content=tool_result,
                     name=tool_call["name"],
@@ -185,7 +404,7 @@ class LangGraphAgent:
         thread_id = config.get("configurable", {}).get("thread_id")
         # func chat wasnt reading except state.messeges
         code_context = ""
-        code = state_values.get("code")
+        code = state_values.get("sanitized_code") or state_values.get("code")
         language = state_values.get("language")
         if code:
             code_context = (
@@ -193,6 +412,9 @@ class LangGraphAgent:
                 f"Language: {language or 'unknown'}\n"
                 f"```{language or ''}\n{code}\n```\n"
             )
+        review_findings = state_values.get("review_findings") or []
+        if review_findings:
+            code_context += f"Review findings from parallel lanes:\n{json.dumps(review_findings)}\n"
 
         SYSTEM_PROMPT = load_system_prompt(
             username=username,
@@ -201,13 +423,20 @@ class LangGraphAgent:
             skill_profile=state_values.get("skill_profile", "No Skill Profile for this user"),
         )
 
-        # Prepare messages with system prompt
-        messages = prepare_messages(cast(list[Message], state_messages), SYSTEM_PROMPT)
+        # Prepare messages with system prompt. The inbound DLP result is the
+        # only user content allowed to reach the agent after the perimeter.
+        sanitized_query = state_values.get("sanitized_query")
+        agent_messages = (
+            self._sanitize_messages_for_agent(state_messages, sanitized_query)
+            if isinstance(sanitized_query, str)
+            else state_messages
+        )
+        messages = prepare_messages(cast(list[Message], agent_messages), SYSTEM_PROMPT)
 
         try:
-            # Use LLM service with automatic retries and circular fallback
+            # Invoke the locally tool-bound agent model.
             with llm_inference_duration_seconds.labels(model=model_name).time():
-                response_message = await self.llm_service.call(dump_messages(messages))
+                response_message = await self._call_agent_model(dump_messages(messages))
 
             # Process response to handle structured content blocks
             response_message = process_llm_response(response_message)
@@ -222,11 +451,18 @@ class LangGraphAgent:
             # Keep reasoning and tool use inside the same graph node. The
             # model message is checkpointed before the next agent step runs.
             if isinstance(response_message, AIMessage) and response_message.tool_calls:
-                goto = "agent"
-            else:
-                goto = END
+                return Command(update={"messages": [response_message]}, goto="agent")
 
-            return Command(update={"messages": [response_message]}, goto=goto)
+            response_message = self._ensure_syntax_blockers_in_response(
+                response_message,
+                state_messages,
+                state_values.get("review_findings"),
+            )
+            draft_response = extract_text_content(response_message.content)
+            return Command(
+                update={"messages": [response_message], "draft_response": draft_response},
+                goto="outbound",
+            )
         except Exception as e:
             logger.error(
                 "llm_call_failed_all_models",
@@ -239,20 +475,42 @@ class LangGraphAgent:
     async def create_graph(self) -> Optional[CompiledStateGraph]:
         """Create and configure the LangGraph workflow.
 
+        The graph has an inbound safety perimeter, an agent-owned ReAct loop,
+        and an outbound safety perimeter:
+
+            inbound_dlp -> inbound_intent -> parallel reviews -> agent <-> agent -> outbound -> END
+                  |              |                  |                  |
+                  +--------------+------------------+--> redirect -----+
+
         Returns:
             Optional[CompiledStateGraph]: The configured LangGraph instance or None if init fails
         """
         if self._graph is None:
             try:
                 graph_builder = StateGraph(GraphState)
+
+                graph_builder.add_node("inbound_dlp", cast(Any, inbound_dlp_node))
+                graph_builder.add_node("inbound_intent", cast(Any, inbound_intent_node))
+                graph_builder.add_node("guardrail_redirect", self._guardrail_redirect, destinations=(END,))
+                graph_builder.add_node("review_correctness", _correctness_review_lane)
+                graph_builder.add_node("review_security", security_review_node)
+                graph_builder.add_node("review_performance", performance_review_node)
+                graph_builder.add_node("merge_reviews", _merge_review_findings)
                 graph_builder.add_node(
                     "agent",
                     self._agent,
-                    destinations=("agent", END),
+                    destinations=("agent", "outbound"),
                     retry_policy=RetryPolicy(max_attempts=3),
                 )
-                graph_builder.set_entry_point("agent")
-                graph_builder.set_finish_point("agent")
+                graph_builder.add_node("outbound", self._outbound)
+                graph_builder.set_entry_point("inbound_dlp")
+                graph_builder.add_conditional_edges("inbound_dlp", _route_after_dlp)
+                graph_builder.add_conditional_edges("inbound_intent", _route_after_intent)
+                graph_builder.add_edge("review_correctness", "merge_reviews")
+                graph_builder.add_edge("review_security", "merge_reviews")
+                graph_builder.add_edge("review_performance", "merge_reviews")
+                graph_builder.add_edge("merge_reviews", "agent")
+                graph_builder.add_edge("outbound", END)
 
                 # Get connection pool (may be None in production if DB unavailable)
                 connection_pool = await self._get_connection_pool()
@@ -348,10 +606,10 @@ class LangGraphAgent:
         )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
-            # Each tool round uses two agent steps: model decision + tool
-            # execution. Bound the self-loop so malformed/tool-happy model
-            # behavior cannot run indefinitely.
-            "recursion_limit": max(3, settings.AGENT_MAX_STEPS * 2 + 1),
+            # Each tool round uses two agent steps, plus inbound DLP/intent and
+            # outbound validation. Bound the loop so tool-happy behavior cannot
+            # run indefinitely.
+            "recursion_limit": max(5, settings.AGENT_MAX_STEPS * 2 + 4),
             "callbacks": callbacks,
             "metadata": {
                 "user_id": user_id,
@@ -363,10 +621,13 @@ class LangGraphAgent:
         }
 
         try:
+            safe_memory_query = await self._inbound_memory_query(messages, code)
             # Run state check and memory search concurrently to save 200-500ms
             state, relevant_memory, skill_profile = await asyncio.gather(
                 graph.aget_state(config),
-                memory_service.search(user_id, messages[-1].content),
+                memory_service.search(user_id, safe_memory_query)
+                if safe_memory_query
+                else asyncio.sleep(0, result=""),
                 memory_service.get_skill_profile(user_id),
             )
 
@@ -435,7 +696,7 @@ class LangGraphAgent:
         )
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
-            "recursion_limit": max(3, settings.AGENT_MAX_STEPS * 2 + 1),
+            "recursion_limit": max(5, settings.AGENT_MAX_STEPS * 2 + 4),
             "callbacks": callbacks,
             "metadata": {
                 "user_id": user_id,
@@ -448,10 +709,13 @@ class LangGraphAgent:
         graph = await self._get_graph()
 
         try:
+            safe_memory_query = await self._inbound_memory_query(messages, code)
             # Run state check and memory search concurrently to save 200-500ms
             state, relevant_memory, skill_profile = await asyncio.gather(
                 graph.aget_state(config),
-                memory_service.search(user_id, messages[-1].content),
+                memory_service.search(user_id, safe_memory_query)
+                if safe_memory_query
+                else asyncio.sleep(0, result=""),
                 memory_service.get_skill_profile(user_id),
             )
 
@@ -468,26 +732,25 @@ class LangGraphAgent:
                     memory_service._profile_to_text(skill_profile),
                 )
 
-            async for token, _ in graph.astream(
-                graph_input,
-                config,
-                stream_mode="messages",
-            ):
-                if not isinstance(token, (AIMessage, AIMessageChunk)):
-                    continue
+            # Invoke to completion before yielding anything. The outbound
+            # guardrail must approve the complete draft before a single token
+            # reaches the client; otherwise a blocked draft could leak through
+            # the SSE stream. Re-chunk the approved response for compatibility
+            # with the streaming API.
+            response = await graph.ainvoke(graph_input, config=config)
 
-                text = extract_text_content(token.content)
-                if text:
-                    yield text
-
-            # After streaming completes, check for interrupt or update memory
+            # After invocation, check for interrupt or update memory.
             state = await graph.aget_state(config)
             if state.next:
                 interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
                 logger.info("graph_interrupted_stream", session_id=session_id, interrupt_value=str(interrupt_value))
                 yield str(interrupt_value)
             elif state.values and "messages" in state.values:
-                openai_msgs = cast(list[dict], convert_to_openai_messages(state.values["messages"]))
+                final_response = response.get("final_response") or state.values.get("final_response")
+                if final_response:
+                    for start in range(0, len(str(final_response)), 256):
+                        yield str(final_response)[start : start + 256]
+                openai_msgs = cast(list[dict], convert_to_openai_messages(response["messages"]))
                 asyncio.create_task(memory_service.add(user_id, openai_msgs, config.get("metadata")))
         except GraphInterrupt:
             state = await graph.aget_state(config)

@@ -62,13 +62,11 @@ flowchart TD
 
 ## Tools
 
-Tools are bound to the LLM at startup:
-
-```python
-llm_service.bind_tools(tools)
-```
-
-When a model is switched during fallback, the tools are re-bound to the new model automatically.
+The shared LLM service does not bind the main agent's tools. `LangGraphAgent`
+gets the current model from this service and binds its own agent tool registry
+locally, so model/tool state is owned by the agent runtime. The graph's
+correctness, security, and performance review lanes run before the agent and
+are not exposed as a fourth model-selected review tool.
 
 ## Structured output
 

@@ -11,8 +11,10 @@ from .ask_human import ask_human
 from .duckduckgo_search import duckduckgo_search_tool
 from .review_code import review_code
 
-tools: list[BaseTool] = [
+agent_tools: list[BaseTool] = [
     duckduckgo_search_tool,
     ask_human,
-    review_code,
 ]
+
+review_tools: list[BaseTool] = [review_code]
+tools: list[BaseTool] = [*agent_tools, *review_tools]

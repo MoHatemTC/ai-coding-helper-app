@@ -34,7 +34,11 @@ _KNOWN_SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("stripe_key", re.compile(r"\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9]{16,}\b")),
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")),
 )
-_HIGH_ENTROPY_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9_])[A-Za-z0-9+/=_-]{8,}(?![A-Za-z0-9_])")
+_HIGH_ENTROPY_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9_])[A-Za-z0-9+/=_-]{16,}(?![A-Za-z0-9_])")
+_SECRET_CONTEXT_PATTERN = re.compile(
+    r"\b(?:api[_-]?key|access[_-]?key|authorization|bearer|credential|password|passwd|private[_-]?key|secret|token)\b",
+    re.IGNORECASE,
+)
 _CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 _UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
@@ -79,6 +83,13 @@ def _is_benign_high_entropy(value: str, text: str, start: int, end: int) -> bool
     if _PYTHON_IDENTIFIER_PATTERN.fullmatch(value):
         return True
     return any(match.start() <= start and end <= match.end() for match in _DATA_URI_PATTERN.finditer(text))
+
+
+def _has_secret_context(text: str, start: int, end: int) -> bool:
+    """Return whether an opaque value is near an explicit credential marker."""
+    context_start = max(0, start - 64)
+    context_end = min(len(text), end + 64)
+    return bool(_SECRET_CONTEXT_PATTERN.search(text[context_start:context_end]))
 
 
 def _redact_match(text: str, start: int, end: int) -> str:
@@ -134,7 +145,7 @@ def _scan_and_sanitize(text: str) -> tuple[str, list[str]]:
         value = match.group()
         if _is_benign_high_entropy(value, text, match.start(), match.end()):
             continue
-        if _shannon_entropy(value) >= _ENTROPY_THRESHOLD:
+        if _shannon_entropy(value) >= _ENTROPY_THRESHOLD and _has_secret_context(text, match.start(), match.end()):
             record("high_entropy_token", match.start(), match.end())
 
     sanitized = text
