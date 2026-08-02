@@ -79,7 +79,11 @@ async def outbound_node(state: dict[str, Any], primary_client: Any = None) -> di
             "final_response": SAFE_TIMEOUT_RESPONSE,
         }
 
-    final_response = draft_response if decision.is_safe_output else decision.constructive_redirect
+    final_response = (
+        draft_response
+        if decision.is_safe_output
+        else decision.constructive_redirect or SAFE_TIMEOUT_RESPONSE
+    )
     if not decision.is_safe_output:
         logger.info(
             "outbound_response_blocked",

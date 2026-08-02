@@ -7,13 +7,13 @@ from typing import (
     List,
 )
 
+from dotenv import load_dotenv
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
+from app.core.config import settings
 from app.core.logging import logger
-from dotenv import load_dotenv
-from langchain_groq import ChatGroq
 
 load_dotenv()
 
@@ -27,35 +27,17 @@ class LLMRegistry:
 
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "openrouter/free",
+            "name": settings.DEFAULT_LLM_MODEL,
             "llm": ChatOpenAI(
-                model="openrouter/free",
-                base_url="https://openrouter.ai/api/v1",
-                api_key=SecretStr(os.environ["OPENROUTER_API_KEY"]),
+                model=settings.DEFAULT_LLM_MODEL,
+                base_url=settings.LITELLM_BASE_URL,
+                api_key=SecretStr(settings.LITELLM_API_KEY),
             ),
             "llm_class": ChatOpenAI,
             "constructor_kwargs": {
-                "base_url": "https://openrouter.ai/api/v1",
-                "api_key": os.environ["OPENROUTER_API_KEY"],
+                "base_url": settings.LITELLM_BASE_URL,
+                "api_key": settings.LITELLM_API_KEY,
             },
-        },
-        {
-            "name": "openai/gpt-oss-120b",
-            "llm": ChatGroq(model="openai/gpt-oss-120b"),
-            "llm_class": ChatGroq,
-            "constructor_kwargs": {},
-        },
-        {
-            "name": "llama-3.3-70b-versatile",
-            "llm": ChatGroq(model="llama-3.3-70b-versatile"),
-            "llm_class": ChatGroq,
-            "constructor_kwargs": {},
-        },
-        {
-            "name": "llama-3.1-8b-instant",
-            "llm": ChatGroq(model="llama-3.1-8b-instant"),
-            "llm_class": ChatGroq,
-            "constructor_kwargs": {},
         },
     ]
 

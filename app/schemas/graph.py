@@ -32,3 +32,15 @@ class GraphState(BaseModel):
         default_factory=list,
         description="File metadata for the current turn, consumed by store_messages",
     )
+
+    # Guardrail fields
+    is_safe_intent: bool = Field(default=True)
+    is_safe_output: bool = Field(default=True)
+    draft_response: str = Field(default="", description="Raw agent output — never stored")
+    final_response: str = Field(default="", description="Approved response that gets stored and returned")
+    inbound_trigger_reason: str | None = Field(default=None)
+    outbound_trigger_reason: str | None = Field(default=None)
+    constructive_redirect: str | None = Field(default=None)
+
+    # Inbound redaction flag
+    user_query_redacted: bool = Field(default=False, description="True when inbound query was flagged and redacted")

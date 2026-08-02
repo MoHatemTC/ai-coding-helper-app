@@ -40,7 +40,6 @@ dependencies = [
     "uvloop>=0.22.1; platform_system != 'Windows'",
     "asgi-correlation-id>=4.3.4",
     "alembic>=1.18.4",
-    "langchain-groq>=1.0.1",
     "transformers>=5.14.0",
     "sentence-transformers>=5.6.0",
     "streamlit>=1.60.0",
@@ -154,6 +153,8 @@ exclude = [
     "migrations",
     "venv",
 ]
+venvPath = "."
+venv = ".venv"
 stubPath = "typings"
 pythonVersion = "3.13"
 typeCheckingMode = "standard"

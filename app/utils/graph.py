@@ -1,20 +1,53 @@
 """This file contains the graph utilities for the application."""
 
+from typing import Any
+
 import tiktoken
 from langchain_core.messages import BaseMessage
 
 from app.core.config import settings
 from app.core.logging import logger
 
-# Cache tiktoken encoding at module level — thread-safe and reusable
-try:
-    _TIKTOKEN_ENCODING = tiktoken.encoding_for_model(settings.DEFAULT_LLM_MODEL)
-except KeyError:
-    _TIKTOKEN_ENCODING = tiktoken.get_encoding("cl100k_base")
+_TIKTOKEN_ENCODING: Any | None = None
+_TOKENIZER_INITIALIZATION_FAILED = False
+
+
+def _get_token_encoding() -> Any | None:
+    """Return a cached tokenizer without blocking application startup offline."""
+    global _TIKTOKEN_ENCODING, _TOKENIZER_INITIALIZATION_FAILED
+
+    if _TIKTOKEN_ENCODING is not None:
+        return _TIKTOKEN_ENCODING
+    if _TOKENIZER_INITIALIZATION_FAILED:
+        return None
+
+    try:
+        _TIKTOKEN_ENCODING = tiktoken.encoding_for_model(settings.DEFAULT_LLM_MODEL)
+    except KeyError:
+        try:
+            _TIKTOKEN_ENCODING = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            _TOKENIZER_INITIALIZATION_FAILED = True
+            logger.exception("tokenizer_initialization_failed", model=settings.DEFAULT_LLM_MODEL)
+            return None
+    except Exception:
+        _TOKENIZER_INITIALIZATION_FAILED = True
+        logger.exception("tokenizer_initialization_failed", model=settings.DEFAULT_LLM_MODEL)
+        return None
+
+    return _TIKTOKEN_ENCODING
+
+
+def _count_text_tokens(value: str, encoding: Any | None) -> int:
+    """Count text tokens, using a conservative character estimate as fallback."""
+    if encoding is None:
+        return max(1, len(value) // 4)
+    return len(encoding.encode(value))
 
 
 def _count_tokens_tiktoken(messages: list) -> int:
     """Count tokens locally using tiktoken — no API call needed."""
+    encoding = _get_token_encoding()
     num_tokens = 0
     for message in messages:
         # Every message has overhead tokens for role/name
@@ -22,17 +55,17 @@ def _count_tokens_tiktoken(messages: list) -> int:
         if isinstance(message, dict):
             for _, value in message.items():
                 if isinstance(value, str):
-                    num_tokens += len(_TIKTOKEN_ENCODING.encode(value))
+                    num_tokens += _count_text_tokens(value, encoding)
         elif isinstance(message, BaseMessage):
             content = message.content
             if isinstance(content, str):
-                num_tokens += len(_TIKTOKEN_ENCODING.encode(content))
+                num_tokens += _count_text_tokens(content, encoding)
             elif isinstance(content, list):
                 for block in content:
                     if isinstance(block, str):
-                        num_tokens += len(_TIKTOKEN_ENCODING.encode(block))
+                        num_tokens += _count_text_tokens(block, encoding)
                     elif isinstance(block, dict) and "text" in block:
-                        num_tokens += len(_TIKTOKEN_ENCODING.encode(block["text"]))
+                        num_tokens += _count_text_tokens(block["text"], encoding)
     num_tokens += 2  # every reply is primed with assistant
     return num_tokens
 

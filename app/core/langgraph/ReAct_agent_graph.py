@@ -7,6 +7,7 @@ the checkpointer, and the public ReActAgent API.
 
 import asyncio
 from typing import (
+    Any,
     AsyncGenerator,
     Optional,
     cast,
@@ -16,10 +17,7 @@ from urllib.parse import quote_plus
 from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import (
-    AIMessage,
-    AIMessageChunk,
     SystemMessage,
-    convert_to_openai_messages,
 )
 from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
@@ -44,7 +42,11 @@ from app.core.config import (
     Environment,
     settings,
 )
+from app.core.langgraph.nodes.collect_draft import collect_draft_node
 from app.core.langgraph.nodes.document_pipeline import document_pipeline_node
+from app.core.langgraph.nodes.inbound_intent import inbound_intent_node
+from app.core.langgraph.nodes.outbound import outbound_node
+from app.core.langgraph.nodes.reask import reask_node
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
 from app.core.langgraph.tools.code_search import (
@@ -62,7 +64,6 @@ from app.schemas import (
 )
 from app.services.memory import memory_service
 from app.services.skill_profile import skill_profile_service
-from app.utils import extract_text_content
 
 PostgresConnPool = AsyncConnectionPool[AsyncConnection[DictRow]]
 
@@ -80,6 +81,31 @@ _agent = create_agent(
     tools=[duckduckgo_search_tool, search_code],
     name="agent",
 )
+
+
+async def _inbound_intent_graph_node(state: GraphState) -> dict[str, Any]:
+    """Adapt the dictionary-based guardrail node to the graph state schema."""
+    return await inbound_intent_node(cast(dict[str, Any], state))
+
+
+async def _collect_draft_graph_node(state: GraphState) -> dict[str, Any]:
+    """Adapt the draft collector to the graph state schema."""
+    return await collect_draft_node(cast(dict[str, Any], state))
+
+
+async def _outbound_graph_node(state: GraphState) -> dict[str, Any]:
+    """Adapt the outbound guardrail node to the graph state schema."""
+    return await outbound_node(cast(dict[str, Any], state))
+
+
+async def _reask_graph_node(state: GraphState) -> dict[str, Any]:
+    """Adapt the re-ask node to the graph state schema."""
+    return await reask_node(cast(dict[str, Any], state), _chat_model)
+
+
+async def _store_messages_graph_node(state: GraphState, config: RunnableConfig) -> dict[str, Any]:
+    """Adapt the persistence node to the graph state schema."""
+    return await store_messages_node(cast(dict[str, Any], state), config)
 
 
 class ReActAgent:
@@ -134,13 +160,24 @@ class ReActAgent:
         if self._graph is None:
             try:
                 graph_builder = StateGraph(GraphState)
+                graph_builder.add_node("inbound_intent", _inbound_intent_graph_node)
                 graph_builder.add_node("document_pipeline", document_pipeline_node)
                 graph_builder.add_node("agent", _agent)
-                graph_builder.add_node("store_messages", store_messages_node)
+                graph_builder.add_node("collect_draft", _collect_draft_graph_node)
+                graph_builder.add_node("outbound", _outbound_graph_node)
+                graph_builder.add_node("reask", _reask_graph_node)
+                graph_builder.add_node("store_messages", _store_messages_graph_node)
                 graph_builder.add_node("summarization", summarization_node)
-                graph_builder.set_entry_point("document_pipeline")
+                graph_builder.set_entry_point("inbound_intent")
+                graph_builder.add_edge("inbound_intent", "document_pipeline")
                 graph_builder.add_edge("document_pipeline", "agent")
-                graph_builder.add_edge("agent", "store_messages")
+                graph_builder.add_edge("agent", "collect_draft")
+                graph_builder.add_edge("collect_draft", "outbound")
+                graph_builder.add_conditional_edges(
+                    "outbound",
+                    lambda state: "reask" if not state.get("is_safe_output", True) else "store_messages",
+                )
+                graph_builder.add_edge("reask", "store_messages")
                 graph_builder.add_edge("store_messages", "summarization")
                 graph_builder.add_edge("summarization", END)
 
@@ -269,13 +306,8 @@ class ReActAgent:
 
             response = await graph.ainvoke(graph_input, config=config)
 
-            openai_msgs = cast(list[dict], convert_to_openai_messages(response["messages"]))
-            assistant_msgs = [
-                Message(role=msg["role"], content=str(msg["content"]))
-                for msg in openai_msgs
-                if msg["role"] == "assistant" and msg["content"]
-            ]
-            return [assistant_msgs[-1]] if assistant_msgs else []
+            final_response = response.get("final_response", "")
+            return [Message(role="assistant", content=final_response)] if final_response else []
         except Exception as e:
             logger.exception("get_response_failed", error=str(e), session_id=session_id)
             raise
@@ -307,20 +339,12 @@ class ReActAgent:
                 message, session_id, user_id, username, pending_files
             )
 
-            async for namespace, (chunk, _) in graph.astream(
-                graph_input,
-                config,
-                stream_mode="messages",
-                subgraphs=True,
-            ):
-                if (
-                    namespace
-                    and namespace[0].split(":")[0] == "agent"
-                    and isinstance(chunk, (AIMessage, AIMessageChunk))
-                ):
-                    text = extract_text_content(chunk.content) if chunk.content else ""
-                    if text:
-                        yield text
+            await graph.ainvoke(graph_input, config=config)
+            state = await graph.aget_state(config)
+            final_response = state.values.get("final_response", "")
+            for word in final_response.split(" "):
+                yield word + " "
+                await asyncio.sleep(0.02)
         except Exception as e:
             logger.exception("stream_processing_failed", error=str(e), session_id=session_id)
             raise

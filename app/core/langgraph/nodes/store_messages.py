@@ -1,90 +1,67 @@
-"""LangGraph node for storing messages to mem0 and messages table."""
+"""Store the user turn and approved final response without persisting a draft."""
 
-import asyncio
-from typing import cast
+from typing import Any
 
-from langchain_core.messages import (
-    AIMessage,
-    HumanMessage,
-    convert_to_openai_messages,
-)
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 
 from app.core.logging import logger
-from app.schemas import GraphState
 from app.services.memory import memory_service
 from app.services.message import message_service
 from app.services.skill_profile import skill_profile_service
-from langgraph.graph.state import Command
 
 
-async def store_messages_node(state: GraphState, config: RunnableConfig) -> Command:
-    """Store the current turn's messages to mem0 and messages table.
-
-    Runs after the LLM response completes (no more tool calls).
-    Uses last_message_index to identify new messages from this turn.
-
-    Args:
-        state: The current graph state containing messages and last_message_index.
-        config: The runnable configuration containing metadata (user_id, session_id).
-
-    Returns:
-        Empty dict — this node doesn't modify state.
-    """
-    messages = state.messages
-    last_message_index = state.last_message_index
+async def store_messages_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
+    """Persist only the sanitized user message and final approved assistant response."""
     metadata = config.get("metadata", {})
     user_id = metadata.get("user_id")
     session_id = metadata.get("session_id")
+    if not user_id or not session_id:
+        return {}
 
-    if not user_id or not session_id or not messages:
-        return Command(update={}, goto="summarization")
-
-    # Get new messages from this turn using last_message_index
-    new_messages = messages[last_message_index:]
-
-    if not new_messages:
-        return Command(update={}, goto="summarization")
-
-    logger.info(
-        "store_messages_node_triggered",
-        session_id=session_id,
-        message_count=len(new_messages),
-        last_message_index=last_message_index,
+    messages = state.get("messages", [])
+    human_message = next(
+        (message for message in reversed(messages) if isinstance(message, HumanMessage)), None
     )
+    final_response = state.get("final_response", "")
+    user_query_redacted = state.get("user_query_redacted", False)
+    file_dicts = [attachment.model_dump() for attachment in state.get("uploaded_files", [])] or None
 
-    # Store ALL new messages to mem0 (including tool messages for context)
-    openai_msgs = cast(list[dict], convert_to_openai_messages(new_messages))
-    asyncio.create_task(memory_service.add(user_id, openai_msgs, metadata))
-
-    # Serialize uploaded file metadata for the message table
-    file_dicts = [f.model_dump() for f in state.uploaded_files] if state.uploaded_files else None
-
-    # Store only user/assistant messages to SQL (for conversation history)
-    sql_messages = []
-    for msg in new_messages:
-        if isinstance(msg, HumanMessage) and msg.content:
-            entry: dict = {"role": "user", "content": str(msg.content)}
-            if file_dicts:
-                entry["files"] = file_dicts
-            sql_messages.append(entry)
-        elif isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-            sql_messages.append({"role": "assistant", "content": str(msg.content)})
+    sql_messages: list[dict[str, Any]] = []
+    if human_message and human_message.content:
+        user_entry: dict[str, Any] = {"role": "user", "content": str(human_message.content)}
+        if file_dicts:
+            user_entry["files"] = file_dicts
+        sql_messages.append(user_entry)
+    if isinstance(final_response, str) and final_response:
+        sql_messages.append({"role": "assistant", "content": final_response})
 
     if sql_messages:
-        asyncio.create_task(
-            message_service.store_messages(
-                user_id=int(user_id),
-                session_id=session_id,
-                messages=sql_messages,
-            )
+        await message_service.store_messages(
+            user_id=int(user_id), session_id=session_id, messages=sql_messages
         )
 
-    # Schedule skill profile update after 30-minute silence
+    # Redacted human input remains available in the checkpoint but is never
+    # promoted to semantic long-term memory. The approved assistant answer is.
+    memory_messages: list[dict[str, str]] = []
+    if human_message and human_message.content and not user_query_redacted:
+        memory_messages.append({"role": "user", "content": str(human_message.content)})
+    if isinstance(final_response, str) and final_response:
+        memory_messages.append({"role": "assistant", "content": final_response})
+    if memory_messages:
+        await memory_service.add(str(user_id), memory_messages, metadata)
+
     conversation_text = "\n".join(
-        f"{m.get('role', 'unknown')}: {m.get('content', '')}" for m in openai_msgs if m.get("content")
+        f"{message['role']}: {message['content']}" for message in memory_messages
     )
-    if conversation_text.strip():
+    if conversation_text:
         skill_profile_service.schedule_update(int(user_id), conversation_text)
 
-    return Command(update={"uploaded_files": []}, goto="summarization")
+    logger.info(
+        "approved_messages_stored",
+        session_id=session_id,
+        user_id=user_id,
+        user_query_redacted=user_query_redacted,
+        assistant_response_stored=bool(final_response),
+    )
+    return {}
