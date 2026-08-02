@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.logging import logger
 
 
+<<<<<<< HEAD
 # Module-level Langfuse client — persists for the lifetime of the process.
 # Required because Langfuse batches traces and flushes asynchronously;
 # a local variable in langfuse_init() would be garbage-collected.
@@ -23,11 +24,19 @@ def langfuse_init():
     """Initialize Langfuse."""
     global langfuse_client, langfuse_callback_handler
 
+=======
+def langfuse_init():
+    """Initialize Langfuse."""
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
     if not settings.LANGFUSE_TRACING_ENABLED:
         logger.debug("langfuse_tracing_disabled")
         return
 
+<<<<<<< HEAD
     langfuse_client = Langfuse(
+=======
+    langfuse = Langfuse(
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         tracing_enabled=settings.LANGFUSE_TRACING_ENABLED,
         public_key=settings.LANGFUSE_PUBLIC_KEY,
         secret_key=settings.LANGFUSE_SECRET_KEY,
@@ -36,11 +45,16 @@ def langfuse_init():
         debug=settings.DEBUG,
     )
 
+<<<<<<< HEAD
     # Create the callback handler AFTER the client is fully configured
     langfuse_callback_handler = CallbackHandler()
 
     try:
         if langfuse_client.auth_check():
+=======
+    try:
+        if langfuse.auth_check():
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
             logger.debug("langfuse_auth_success")
         else:
             logger.warning("langfuse_auth_failure")
@@ -49,6 +63,7 @@ def langfuse_init():
 
 
 def get_langfuse_callback_handler() -> CallbackHandler:
+<<<<<<< HEAD
     """Return the module-level Langfuse CallbackHandler.
 
     The handler is created lazily in ``langfuse_init()``, so this function
@@ -75,3 +90,14 @@ def flush_langfuse() -> None:
             logger.debug("langfuse_flush_complete")
         except Exception:
             logger.exception("langfuse_flush_failed")
+=======
+    """Create a Langfuse CallbackHandler for tracking LLM interactions.
+
+    Returns:
+        CallbackHandler: Configured Langfuse callback handler.
+    """
+    return CallbackHandler()
+
+
+langfuse_callback_handler = get_langfuse_callback_handler()
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))

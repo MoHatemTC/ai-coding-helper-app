@@ -11,3 +11,6 @@ from .ask_human import ask_human
 from .tavily_search import tavily_search_tool
 
 tools: list[BaseTool] = [tavily_search_tool, ask_human]
+from .duckduckgo_search import duckduckgo_search_tool
+
+tools: list[BaseTool] = [duckduckgo_search_tool, ask_human]

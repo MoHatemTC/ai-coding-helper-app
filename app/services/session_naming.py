@@ -18,7 +18,10 @@ from sqlmodel import (
     update,
 )
 
+<<<<<<< HEAD
 from app.core.config import settings
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 from app.core.logging import logger
 from app.core.metrics import session_names_generated_total
 from app.core.prompts import SESSION_TITLE_PROMPT
@@ -61,7 +64,11 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
+<<<<<<< HEAD
             model_name=settings.DEFAULT_LLM_MODEL,
+=======
+            model_name="gpt-5.4-nano",
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
             response_format=SessionTitle,
             reasoning={"effort": "low"},
             max_tokens=32,

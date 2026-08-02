@@ -24,7 +24,22 @@
     },
     "python.analysis.autoImportCompletions": true,
     "python.analysis.indexing": true,
+<<<<<<< HEAD
     "python.analysis.completeFunctionParens": true,
+=======
+    "python.languageServer": "None",
+    "python.analysis.completeFunctionParens": true,
+    "editor.rulers": [
+        {
+            "column": 99,
+            "color": "#FFFFFF"
+        },
+        {
+            "column": 119,
+            "color": "#90EE90"
+        }
+    ],
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
     "python.testing.pytestArgs": [
         "tests"
     ],

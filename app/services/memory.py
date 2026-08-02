@@ -8,6 +8,7 @@ from app.core.cache import (
 )
 from app.core.config import settings
 from app.core.logging import logger
+<<<<<<< HEAD
 from app.schemas.review import Finding
 import os
 from dotenv import load_dotenv
@@ -15,6 +16,8 @@ from dotenv import load_dotenv
 from app.schemas.skill_profile import SkillLevel, SkillProfile, Weakness
 
 load_dotenv()
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 class MemoryService:
@@ -37,6 +40,7 @@ class MemoryService:
                             "password": settings.POSTGRES_PASSWORD,
                             "host": settings.POSTGRES_HOST,
                             "port": settings.POSTGRES_PORT,
+<<<<<<< HEAD
                             "embedding_model_dims": 384,
                         },
                     },
@@ -50,6 +54,17 @@ class MemoryService:
                     "embedder": {
                         "provider": "huggingface",
                         "config": {"model": "sentence-transformers/all-MiniLM-L6-v2"},
+=======
+                        },
+                    },
+                    "llm": {
+                        "provider": "openai",
+                        "config": {"model": settings.LONG_TERM_MEMORY_MODEL},
+                    },
+                    "embedder": {
+                        "provider": "openai",
+                        "config": {"model": settings.LONG_TERM_MEMORY_EMBEDDER_MODEL},
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
                     },
                 }
             )
@@ -110,6 +125,7 @@ class MemoryService:
         except Exception as e:
             logger.exception("failed_to_update_long_term_memory", user_id=user_id, error=str(e))
 
+<<<<<<< HEAD
     async def store_finding(self, user_id: str, session_id: str, finding: Finding) -> None:
         """Store a finding in long-term memory."""
         if user_id is None or session_id is None:
@@ -231,5 +247,7 @@ class MemoryService:
         )
         return profile_text
 
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 memory_service = MemoryService()

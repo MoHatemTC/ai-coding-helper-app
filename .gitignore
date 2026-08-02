@@ -21,7 +21,10 @@ wheels/
 
 # Reports
 evals/reports/
+<<<<<<< HEAD
 
 # Smoke Scripts
 scripts/
 smoke-reports/
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))

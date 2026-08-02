@@ -16,6 +16,10 @@ from sqlmodel import (
 )
 
 from app.core.config import (
+<<<<<<< HEAD
+=======
+    Environment,
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
     settings,
 )
 from app.core.logging import logger
@@ -53,6 +57,7 @@ class DatabaseService:
                 pool_recycle=1800,  # Recycle connections after 30 minutes
             )
 
+<<<<<<< HEAD
             # Create all tables if they don't exist (for development/testing)
             from sqlmodel import SQLModel
             from app.models.user import User  # noqa: F401
@@ -60,6 +65,8 @@ class DatabaseService:
 
             SQLModel.metadata.create_all(self.engine)
 
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
             logger.info(
                 "database_initialized",
                 environment=settings.ENVIRONMENT.value,
@@ -68,8 +75,14 @@ class DatabaseService:
             )
         except SQLAlchemyError as e:
             logger.error("database_initialization_error", error=str(e), environment=settings.ENVIRONMENT.value)
+<<<<<<< HEAD
             # Never raise on init — allow app to start even if DB is unreachable.
             # Individual DB operations will fail at runtime with proper HTTP errors.
+=======
+            # In production, don't raise - allow app to start even with DB issues
+            if settings.ENVIRONMENT != Environment.PRODUCTION:
+                raise
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
     async def create_user(self, email: str, password: str, username: str | None = None) -> User:
         """Create a new user.

@@ -11,9 +11,12 @@ Help the user with their questions.
 # What you know about the user
 {long_term_memory}
 
+<<<<<<< HEAD
 # User Skill Profile
 {skill_profile}
 
 {code_context}
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 # Current date and time
 {current_date_and_time}

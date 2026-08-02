@@ -146,10 +146,15 @@ class Settings:
         self.LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
         # LangGraph Configuration
+<<<<<<< HEAD
         self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
         self.LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm")
         self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "fw-kimi-k2.6")
         self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "fw-kimi-k2.6")
+=======
+        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "gpt-5-mini")
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
@@ -157,7 +162,11 @@ class Settings:
         self.LLM_TOTAL_TIMEOUT = int(os.getenv("LLM_TOTAL_TIMEOUT", "60"))
 
         # Long term memory Configuration
+<<<<<<< HEAD
         self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "kimi-k2.5")
+=======
+        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
         # JWT Configuration
@@ -216,8 +225,13 @@ class Settings:
 
         # Evaluation Configuration
         self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", "gpt-5")
+<<<<<<< HEAD
         self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", self.LITELLM_BASE_URL)
         self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.LITELLM_API_KEY)
+=======
+        self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", "https://api.openai.com/v1")
+        self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.OPENAI_API_KEY)
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         self.EVALUATION_SLEEP_TIME = int(os.getenv("EVALUATION_SLEEP_TIME", "10"))
 
         # Apply environment-specific settings

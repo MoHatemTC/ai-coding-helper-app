@@ -76,12 +76,15 @@ async def lifespan(app: FastAPI):
     if agent._connection_pool:
         await agent._connection_pool.close()
         logger.info("connection_pool_closed")
+<<<<<<< HEAD
 
     # Flush pending Langfuse traces before exit
     from app.core.observability import flush_langfuse
 
     flush_langfuse()
 
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
     logger.info("application_shutdown")
 
 

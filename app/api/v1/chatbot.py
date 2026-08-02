@@ -63,12 +63,16 @@ async def chat(
             maybe_name_session(session.id, session.name, chat_request.messages)
 
         result = await agent.get_response(
+<<<<<<< HEAD
             chat_request.messages,
             session.id,
             user_id=str(session.user_id),
             username=session.username,
             code=chat_request.code,
             language=chat_request.language,
+=======
+            chat_request.messages, session.id, user_id=str(session.user_id), username=session.username
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         )
 
         logger.info("chat_request_processed", session_id=session.id)
@@ -121,12 +125,16 @@ async def chat_stream(
             try:
                 with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
                     async for chunk in agent.get_stream_response(
+<<<<<<< HEAD
                         chat_request.messages,
                         session.id,
                         user_id=str(session.user_id),
                         username=session.username,
                         code=chat_request.code,
                         language=chat_request.language,
+=======
+                        chat_request.messages, session.id, user_id=str(session.user_id), username=session.username
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
                     ):
                         response = StreamResponse(content=chunk, done=False)
                         yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"

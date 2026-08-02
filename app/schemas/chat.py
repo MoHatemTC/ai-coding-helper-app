@@ -26,7 +26,11 @@ class Message(BaseModel):
     model_config = {"extra": "ignore"}
 
     role: Literal["user", "assistant", "system"] = Field(..., description="The role of the message sender")
+<<<<<<< HEAD
     content: str = Field(..., description="The content of the message", min_length=1, max_length=8000)
+=======
+    content: str = Field(..., description="The content of the message", min_length=1, max_length=3000)
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
     @field_validator("content")
     @classmethod
@@ -58,8 +62,11 @@ class ChatRequest(BaseModel):
 
     Attributes:
         messages: List of messages in the conversation.
+<<<<<<< HEAD
         code: Optional code snippet submitted for review.
         language: Optional programming language of the submitted code.
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
     """
 
     messages: List[Message] = Field(
@@ -67,6 +74,7 @@ class ChatRequest(BaseModel):
         description="List of messages in the conversation",
         min_length=1,
     )
+<<<<<<< HEAD
     code: str | None = Field(
         default=None,
         description="Optional code snippet submitted for review",
@@ -97,6 +105,8 @@ class ChatRequest(BaseModel):
         if "\0" in v:
             raise ValueError("Code contains null bytes")
         return v
+=======
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 class ChatResponse(BaseResponse):

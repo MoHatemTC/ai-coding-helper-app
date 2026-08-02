@@ -10,12 +10,23 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
+<<<<<<< HEAD
 from app.core.config import settings
 from app.core.logging import logger
 
 _TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
 _API_KEY = SecretStr(settings.LITELLM_API_KEY)
 _BASE_URL = settings.LITELLM_BASE_URL
+=======
+from app.core.config import (
+    Environment,
+    settings,
+)
+from app.core.logging import logger
+
+_TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
+_API_KEY = SecretStr(settings.OPENAI_API_KEY)
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 class LLMRegistry:
@@ -25,6 +36,7 @@ class LLMRegistry:
     methods to retrieve them by name with optional argument overrides.
     """
 
+<<<<<<< HEAD
     # NOTE (22 Jul): entry "name" is a stable lookup key referenced elsewhere
     # (settings.DEFAULT_LLM_MODEL == "fw-kimi-k2.6"); it intentionally no
     # longer matches its own "model" string below -- see the 22 Jul comment
@@ -55,6 +67,45 @@ class LLMRegistry:
                 api_key=_API_KEY,
                 base_url=_BASE_URL,
                 model_kwargs=_TOKEN_LIMIT,
+=======
+    LLMS: List[Dict[str, Any]] = [
+        {
+            "name": "gpt-5-mini",
+            "llm": ChatOpenAI(
+                model="gpt-5-mini",
+                api_key=_API_KEY,
+                model_kwargs=_TOKEN_LIMIT,
+                reasoning={"effort": "low"},
+            ),
+        },
+        {
+            "name": "gpt-5.4",
+            "llm": ChatOpenAI(
+                model="gpt-5",
+                api_key=_API_KEY,
+                model_kwargs=_TOKEN_LIMIT,
+                reasoning={"effort": "medium"},
+            ),
+        },
+        {
+            "name": "gpt-5.4-nano",
+            "llm": ChatOpenAI(
+                model="gpt-5.4-nano",
+                api_key=_API_KEY,
+                model_kwargs=_TOKEN_LIMIT,
+                reasoning={"effort": "low"},
+            ),
+        },
+        {
+            "name": "gpt-5",
+            "llm": ChatOpenAI(
+                model="gpt-5",
+                api_key=_API_KEY,
+                model_kwargs=_TOKEN_LIMIT,
+                top_p=0.95 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.8,
+                presence_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,
+                frequency_penalty=0.1 if settings.ENVIRONMENT == Environment.PRODUCTION else 0.0,
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
             ),
         },
     ]
@@ -84,7 +135,11 @@ class LLMRegistry:
 
         if kwargs:
             logger.debug("creating_llm_with_custom_args", model_name=model_name, custom_args=list(kwargs.keys()))
+<<<<<<< HEAD
             return ChatOpenAI(model=model_name, api_key=_API_KEY, base_url=_BASE_URL, **kwargs)
+=======
+            return ChatOpenAI(model=model_name, api_key=_API_KEY, **kwargs)
+>>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
         logger.debug("using_default_llm_instance", model_name=model_name)
         return model_entry["llm"]
