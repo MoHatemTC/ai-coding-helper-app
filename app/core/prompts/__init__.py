@@ -21,6 +21,7 @@ def load_system_prompt(username: Optional[str] = None, **kwargs):
     user_context = f"# User\nYou are talking to {username}.\n" if username else ""
     kwargs.setdefault("summary", "")
     kwargs.setdefault("skill_profile", "No skill profile yet.")
+    kwargs.setdefault("code_context", "")
     return _SYSTEM_PROMPT_TEMPLATE.format(
         agent_name=settings.PROJECT_NAME + " Agent",
         current_date_and_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

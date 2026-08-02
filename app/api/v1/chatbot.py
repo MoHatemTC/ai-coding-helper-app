@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
-from app.core.langgraph.graph import LangGraphAgent
+from app.core.langgraph.ReAct_agent_graph import ReActAgent
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import llm_stream_duration_seconds
@@ -39,7 +39,7 @@ from app.services.session_naming import maybe_name_session
 
 
 router = APIRouter()
-agent = LangGraphAgent()
+agent = ReActAgent()
 
 
 async def _process_files(
@@ -47,6 +47,11 @@ async def _process_files(
     session: Session,
 ) -> list:
     """Validate and save uploaded files, returning FileAttachment lists."""
+    if not files:
+        return []
+
+    # Tolerate clients that always send a files part without a selection.
+    files = [file for file in files if file.filename]
     if not files:
         return []
 
@@ -158,7 +163,7 @@ async def chat_stream(
             """Generate streaming events."""
             try:
                 user_message = MessageSchema(role="user", content=message)
-                with llm_stream_duration_seconds.labels(model=agent.llm_service.get_llm().get_name()).time():
+                with llm_stream_duration_seconds.labels(model=agent.model_name).time():
                     async for chunk in agent.get_stream_response(
                         user_message,
                         session.id,

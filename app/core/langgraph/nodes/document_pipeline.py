@@ -26,7 +26,7 @@ async def document_pipeline_node(state: GraphState, config: RunnableConfig) -> C
     """
     pending = state.pending_files
     if not pending:
-        return Command(update={}, goto="chat")
+        return Command(update={}, goto="agent")
 
     metadata = config.get("metadata", {})
     user_id = metadata.get("user_id")
@@ -34,7 +34,7 @@ async def document_pipeline_node(state: GraphState, config: RunnableConfig) -> C
 
     if not user_id or not session_id:
         logger.warning("document_pipeline_skipped", reason="missing_user_id_or_session_id")
-        return Command(update={}, goto="chat")
+        return Command(update={}, goto="agent")
 
     user_id_int = int(user_id)
 
@@ -81,4 +81,4 @@ async def document_pipeline_node(state: GraphState, config: RunnableConfig) -> C
                 file_name=attachment.original_name,
             )
 
-    return Command(update={"pending_files": [], "uploaded_files": pending}, goto="chat")
+    return Command(update={"pending_files": [], "uploaded_files": pending}, goto="agent")

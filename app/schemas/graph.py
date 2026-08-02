@@ -2,7 +2,6 @@
 
 from typing import Annotated
 
-import operator
 from langgraph.graph.message import add_messages
 from pydantic import (
     BaseModel,
@@ -10,7 +9,6 @@ from pydantic import (
 )
 
 from app.schemas.document import FileAttachment
-from app.schemas.review import Finding
 
 
 class GraphState(BaseModel):
@@ -20,13 +18,6 @@ class GraphState(BaseModel):
         default_factory=list, description="The messages in the conversation"
     )
     long_term_memory: str = Field(default="", description="The long term memory of the conversation")
-
-    findings: Annotated[list[Finding], operator.add] = Field(
-        default_factory=list, description="The compiled code review findings across all evaluation stages"
-    )
-
-    code: str | None = Field(default=None, description="The code snippet submitted for review")
-    language: str | None = Field(default=None, description="The programming language of the submitted code")
 
     summary: str = Field(default="", description="The summary of the conversation so far")
     last_message_index: int = Field(default=0, description="Index of the last message processed by summarization node")

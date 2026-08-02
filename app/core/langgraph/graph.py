@@ -151,18 +151,10 @@ class LangGraphAgent:
         username = config.get("metadata", {}).get("username")
         thread_id = config.get("configurable", {}).get("thread_id")
         # func chat wasnt reading except state.messeges
-        code_context = ""
-        if state.code:
-            code_context = (
-                f"# Code submitted for review\n"
-                f"Language: {state.language or 'unknown'}\n"
-                f"```{state.language or ''}\n{state.code}\n```\n"
-            )
 
         SYSTEM_PROMPT = load_system_prompt(
             username=username,
             long_term_memory=state.long_term_memory,
-            code_context=code_context,
             summary=state.summary,
             skill_profile=state.skill_profile or "No skill profile yet.",
         )
