@@ -45,11 +45,7 @@ from app.utils.sanitization import (
 )
 
 router = APIRouter()
-<<<<<<< HEAD
-security = HTTPBearer(auto_error=False)
-=======
 security = HTTPBearer()
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 db_service = DatabaseService()
 
 

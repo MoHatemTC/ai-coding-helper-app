@@ -14,10 +14,16 @@ Or to call a specific tool::
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+# Derived automatically (mcp_server/manual_client.py -> project root is one
+# level up) instead of hardcoded, so this can't silently point at a machine
+# it wasn't written on.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 async def main():
@@ -37,7 +43,7 @@ async def main():
         args=[
             "run",
             "--project",
-            "d:\\Programming\\Sprints\\ai-coding-helper-app",
+            str(_PROJECT_ROOT),
             "python",
             "-m",
             "mcp_server.server",
