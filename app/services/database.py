@@ -12,6 +12,7 @@ from sqlmodel import (
     Session,
     col,
     create_engine,
+    delete,
     select,
 )
 
@@ -20,6 +21,7 @@ from app.core.config import (
     settings,
 )
 from app.core.logging import logger
+from app.models.message import Message
 from app.models.session import Session as ChatSession
 from app.models.user import User
 
@@ -167,6 +169,7 @@ class DatabaseService:
             if not chat_session:
                 return False
 
+            session.exec(delete(Message).where(col(Message.session_id) == session_id))
             session.delete(chat_session)
             session.commit()
             logger.info("session_deleted", session_id=session_id)
