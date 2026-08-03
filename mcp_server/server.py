@@ -76,6 +76,14 @@ async def web_search(query: str) -> str:
             check_pii_flag=True,  # block PII in search queries
         )
 
+        # Check if Tavily API key is configured
+        if tavily_search_tool is None:
+            return json.dumps(
+                {
+                    "error": "TAVILY_API_KEY is not configured. Set it in your .env file to enable web search.",
+                }
+            )
+
         # Tavily search is synchronous; run it
         result = tavily_search_tool.invoke(query)
         if not isinstance(result, str):

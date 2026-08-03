@@ -5,10 +5,12 @@ Run with::
     uv run python -m mcp_server.test_guardrails
 """
 
+import os
 import sys
 
-# Suppress app logging
-sys.stderr = open("nul", "w")  # noqa: SIM115
+# Suppress app logging that would clutter test output.
+# Use os.devnull for cross-platform compatibility (not just Windows "nul").
+sys.stderr = open(os.devnull, "w")  # noqa: SIM115, PTH123
 
 from mcp_server.guardrails import (  # noqa: E402  (imports follow stderr suppression)
     GuardrailError,

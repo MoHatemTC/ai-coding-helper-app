@@ -114,11 +114,11 @@ same-id message as a replacement, not an append.
 
 ```python
 class Finding(BaseModel):
-    line: int             # 1-based source line
-    severity: Severity    # low | medium | high | critical
-    category: Category    # correctness | security | performance | style
-    message: str           # one-sentence, user-facing
-    rationale: str          # why it's a problem
+    line: int  # 1-based source line
+    severity: Severity  # low | medium | high | critical
+    category: Category  # correctness | security | performance | style
+    message: str  # one-sentence, user-facing
+    rationale: str  # why it's a problem
 ```
 
 All three review nodes now return `finding.model_dump()` dicts (not raw

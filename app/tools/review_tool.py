@@ -28,9 +28,7 @@ def _undefined_name_findings(code: str) -> list[Finding]:
     defined_names = set(dir(builtins))
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and isinstance(
-            node.ctx, (ast.Store, ast.Del)
-        ):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             defined_names.add(node.id)
 
         elif isinstance(node, ast.arg):
@@ -62,10 +60,7 @@ def _undefined_name_findings(code: str) -> list[Finding]:
                     severity=Severity.HIGH,
                     category=Category.CORRECTNESS,
                     message=f"Undefined name '{node.id}'.",
-                    rationale=(
-                        f"If this code executes, '{node.id}' may raise "
-                        "a NameError because it is not defined."
-                    ),
+                    rationale=(f"If this code executes, '{node.id}' may raise a NameError because it is not defined."),
                 )
             )
 

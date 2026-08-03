@@ -213,15 +213,35 @@ RATE_LIMITS: dict[str, tuple[int, float]] = {
     "ask_human": (10, 60.0),
 }
 
-# In-memory rate limit tracker: tool_name -> list of timestamps
+# In-memory rate limit tracker: tool_name -> list of timestamps.
+#
+# NOTE: This tracker is in-memory only. Rate limits will reset when the
+# server restarts and are not shared across multiple server instances.
+# For a single stdio MCP server (the typical deployment), this is
+# sufficient. For multi-instance deployments, consider using Redis or
+# another shared store.
+#
+# MAX_RATE_LIMIT_ENTRIES caps the number of timestamps kept per tool to
+# prevent unbounded memory growth in pathological cases.
+MAX_RATE_LIMIT_ENTRIES = 10_000
+
 _rate_limit_tracker: dict[str, list[float]] = defaultdict(list)
 
 
 def _clean_expired(tool_name: str, window: float) -> None:
-    """Remove timestamps outside the current window."""
+    """Remove timestamps outside the current window and cap the list size.
+
+    Args:
+        tool_name: The tool whose timestamps to clean.
+        window: The rolling window in seconds; older timestamps are removed.
+    """
     now = time.time()
     cutoff = now - window
-    _rate_limit_tracker[tool_name] = [t for t in _rate_limit_tracker[tool_name] if t > cutoff]
+    entries = [t for t in _rate_limit_tracker[tool_name] if t > cutoff]
+    # Cap the list to prevent unbounded growth
+    if len(entries) > MAX_RATE_LIMIT_ENTRIES:
+        entries = entries[-MAX_RATE_LIMIT_ENTRIES:]
+    _rate_limit_tracker[tool_name] = entries
 
 
 # =========================================================================
@@ -264,6 +284,14 @@ def get_audit_log() -> list[dict[str, Any]]:
 def clear_audit_log() -> None:
     """Clear the audit log."""
     _audit_log.clear()
+
+
+def clear_rate_limits() -> None:
+    """Clear all rate limit trackers.
+
+    Useful for testing or resetting rate limits without restarting the server.
+    """
+    _rate_limit_tracker.clear()
 
 
 # =========================================================================

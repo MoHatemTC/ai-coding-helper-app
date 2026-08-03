@@ -277,7 +277,7 @@ async def search(self, user_id, query):
     try:
         return await asyncio.wait_for(
             self._memory.search(user_id=user_id, query=query),
-            timeout=5.0  # 5 second timeout
+            timeout=5.0,  # 5 second timeout
         )
     except asyncio.TimeoutError:
         logger.warning("memory_search_timed_out")

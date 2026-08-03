@@ -37,28 +37,28 @@ class LLMRegistry:
     # fallback *slot* without adding a fallback *model* -- the circular
     # fallback loop would have retried the same already-failed model twice.
     LLMS: List[Dict[str, Any]] = [
-    {
-        "name": "gemini/gemini-3-flash-preview",
-        "llm": ChatOpenAI(
-            model="gemini/gemini-3-flash-preview",
-            api_key=_API_KEY,
-            base_url=_BASE_URL,
-            temperature=settings.DEFAULT_LLM_TEMPERATURE,
-            model_kwargs={"max_completion_tokens": 6000},
-            use_responses_api=False,
-        ),
-    },
-    {
-        "name": "gemini/gemini-3.1-flash-lite",
-        "llm": ChatOpenAI(
-            model="gemini/gemini-3.1-flash-lite",
-            api_key=_API_KEY,
-            base_url=_BASE_URL,
-            temperature=settings.DEFAULT_LLM_TEMPERATURE,
-            model_kwargs={"max_completion_tokens": 6000},
-            use_responses_api=False,
-        ),
-    },
+        {
+            "name": "gemini/gemini-3-flash-preview",
+            "llm": ChatOpenAI(
+                model="gemini/gemini-3-flash-preview",
+                api_key=_API_KEY,
+                base_url=_BASE_URL,
+                temperature=settings.DEFAULT_LLM_TEMPERATURE,
+                model_kwargs={"max_completion_tokens": 6000},
+                use_responses_api=False,
+            ),
+        },
+        {
+            "name": "gemini/gemini-3.1-flash-lite",
+            "llm": ChatOpenAI(
+                model="gemini/gemini-3.1-flash-lite",
+                api_key=_API_KEY,
+                base_url=_BASE_URL,
+                temperature=settings.DEFAULT_LLM_TEMPERATURE,
+                model_kwargs={"max_completion_tokens": 6000},
+                use_responses_api=False,
+            ),
+        },
     ]
 
     @classmethod

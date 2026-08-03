@@ -54,7 +54,6 @@ from app.core.langgraph.nodes.correctness import correctness_node
 from app.core.langgraph.nodes.performance_node import performance_review_node
 from app.core.langgraph.nodes.security_review import security_review_node
 from app.core.langgraph.subagent import summarize_tool_output
-from app.core.langgraph.tools import tools
 from app.core.langgraph.tools import agent_tools
 from mcp_server.guardrails import (
     GuardrailError,
@@ -230,7 +229,9 @@ class LangGraphAgent:
 
     @staticmethod
     def _ensure_syntax_blockers_in_response(
-        response_message: BaseMessage, state_messages: list[Any], review_findings: Optional[list[dict[str, Any]]] = None
+        response_message: BaseMessage,
+        state_messages: list[Any],
+        review_findings: Optional[list[dict[str, Any]]] = None,
     ) -> BaseMessage:
         """Preserve syntax blockers when the final model summary omits them."""
         if not isinstance(response_message, AIMessage):
@@ -296,7 +297,7 @@ class LangGraphAgent:
         sanitized_query = state.get("sanitized_query")
         if isinstance(sanitized_query, str) and existing_messages:
             sanitized_messages = self._sanitize_messages_for_agent(existing_messages, sanitized_query)
-            for original, sanitized in zip(existing_messages, sanitized_messages):
+            for original, sanitized in zip(existing_messages, sanitized_messages, strict=True):
                 if sanitized is not original:
                     message_updates.append(sanitized)
                     break
@@ -341,9 +342,7 @@ class LangGraphAgent:
         """Return a DLP-sanitized query for memory search before graph execution."""
         latest_user_text = messages[-1].content if messages else ""
         problem_id = hashlib.sha256(code.encode("utf-8")).hexdigest()[:16] if code else None
-        dlp_result = await inbound_dlp_node(
-            {"user_query": latest_user_text, "code": code, "problem_id": problem_id}
-        )
+        dlp_result = await inbound_dlp_node({"user_query": latest_user_text, "code": code, "problem_id": problem_id})
         if not dlp_result.get("is_safe_sensitive", False):
             return ""
         sanitized_query = dlp_result.get("sanitized_query")
@@ -372,6 +371,7 @@ class LangGraphAgent:
         state_messages = state_values.get("messages") or []
         last_message = state_messages[-1] if state_messages else None
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
+
             async def _execute_tool(tool_call: dict) -> ToolMessage:
                 tool = self.tools_by_name.get(tool_call["name"])
                 if tool is None:
@@ -457,9 +457,7 @@ class LangGraphAgent:
         language = state_values.get("language")
         if code:
             code_context = (
-                f"# Code submitted for review\n"
-                f"Language: {language or 'unknown'}\n"
-                f"```{language or ''}\n{code}\n```\n"
+                f"# Code submitted for review\nLanguage: {language or 'unknown'}\n```{language or ''}\n{code}\n```\n"
             )
         review_findings = state_values.get("review_findings") or []
         if review_findings:

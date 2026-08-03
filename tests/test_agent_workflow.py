@@ -1,8 +1,10 @@
+"""Integration tests for the LangGraph agent workflow and safety perimeter."""
+
 import json
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, StateGraph
 
@@ -20,38 +22,52 @@ from app.schemas.review import InboundIntentJudgeOutput, OutboundJudgeOutput
 
 
 class FakeTool:
+    """Stand-in search tool that records calls for assertions."""
+
     name = "fake_search"
 
     def __init__(self):
+        """Initialize the fake tool with an empty call log."""
         self.calls = []
 
     async def ainvoke(self, args):
+        """Record the call and return a canned search result."""
         self.calls.append(args)
         return "fake search result"
 
 
 class FakeReviewTool:
+    """Stand-in review tool that captures the args it was called with."""
+
     name = "review_code"
 
     def __init__(self):
+        """Initialize the fake review tool with no recorded args."""
         self.args = None
 
     async def ainvoke(self, args):
+        """Record the call args and return canned review findings."""
         self.args = args
         return "review findings"
 
 
 class FakeLLMService:
+    """Stand-in LLM service that returns scripted tool-call then final answer."""
+
     def __init__(self):
+        """Initialize the fake LLM service with zero calls."""
         self.calls = 0
 
     def bind_tools(self, _tools):
+        """Return self to simulate tool binding without a real model."""
         return self
 
     def get_llm(self):
+        """Return a lightweight stand-in exposing a model name."""
         return SimpleNamespace(model_name="test-model")
 
     async def call(self, _messages):
+        """Return a scripted response, incrementing the call counter."""
         self.calls += 1
 
         if self.calls == 1:
@@ -74,9 +90,11 @@ class SafeIntentJudge:
     """Allow a safe request without making a network call."""
 
     def with_structured_output(self, _schema):
+        """Return self to simulate structured output binding."""
         return self
 
     async def ainvoke(self, _messages):
+        """Return a safe intent verdict without a network call."""
         return InboundIntentJudgeOutput(is_safe_intent=True)
 
 
@@ -84,14 +102,17 @@ class SafeOutboundJudge:
     """Allow a safe draft without making a network call."""
 
     def with_structured_output(self, _schema):
+        """Return self to simulate structured output binding."""
         return self
 
     async def ainvoke(self, _messages):
+        """Return a safe output verdict without a network call."""
         return OutboundJudgeOutput(is_safe_output=True)
 
 
 @pytest.mark.asyncio
 async def test_single_agent_owns_reasoning_and_tool_loop():
+    """Verify the agent node owns the ReAct reasoning and tool-call loop."""
     agent = LangGraphAgent()
     fake_llm = FakeLLMService()
     fake_tool = FakeTool()
@@ -112,11 +133,7 @@ async def test_single_agent_owns_reasoning_and_tool_loop():
     graph = builder.compile(checkpointer=InMemorySaver())
 
     result = await graph.ainvoke(
-        {
-            "messages": [
-                HumanMessage(content="Search for Python information.")
-            ]
-        },
+        {"messages": [HumanMessage(content="Search for Python information.")]},
         config={
             "configurable": {"thread_id": "agent-test"},
             "recursion_limit": 10,

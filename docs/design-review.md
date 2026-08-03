@@ -145,6 +145,7 @@ To achieve the required per-node attribution, the `_chat` and `_tool_call` nodes
 # In app/core/langgraph/graph.py, _chat method:
 from app.core.observability import get_langfuse_callback_handler
 
+
 async def _chat(self, state: GraphState, config: RunnableConfig) -> Command:
     node_callbacks = [get_langfuse_callback_handler()]
     # ... existing logic ...

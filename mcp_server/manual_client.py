@@ -1,7 +1,7 @@
 """Manual MCP client — run the MCP server and call tools from the terminal.
 
 This script spawns the MCP server as a subprocess, connects via stdio,
-lists available tools, and calls the review_code tool as a demo.
+lists available tools, and calls the web_search tool as a demo.
 
 Run with::
 
@@ -9,7 +9,7 @@ Run with::
 
 Or to call a specific tool::
 
-    uv run python -m mcp_server.manual_client --tool review_code --code "x = 1 / 0"
+    uv run python -m mcp_server.manual_client --tool web_search --query "Python 3.14"
 """
 
 import asyncio
@@ -25,10 +25,10 @@ async def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Manual MCP client for testing tools")
-    parser.add_argument("--tool", default="review_code", help="Tool name to call")
-    parser.add_argument("--code", default="x = 1 / 0", help="Code to review (for review_code)")
-    parser.add_argument("--query", default="Python 3.14", help="Query (for web_search)")
+    parser.add_argument("--tool", default="web_search", help="Tool name to call")
+    parser.add_argument("--query", default="Python 3.14", help="Query (for web_search, memory_search)")
     parser.add_argument("--question", default="Is this correct?", help="Question (for ask_human)")
+    parser.add_argument("--user-id", default="test-user", help="User ID (for memory_search)")
     parser.add_argument("--list-only", action="store_true", help="Just list tools, don't call any")
     args = parser.parse_args()
 
@@ -67,20 +67,15 @@ async def main():
             print(f"Calling tool: {tool_name}")
 
             arguments: dict[str, Any] = {}
-            if tool_name == "review_code":
-                arguments = {"code": args.code, "language": "python"}
-            elif tool_name == "web_search":
+            if tool_name == "web_search":
                 arguments = {"query": args.query}
             elif tool_name == "ask_human":
                 arguments = {"question": args.question}
             elif tool_name == "memory_search":
-                arguments = {"user_id": "test-user", "query": args.query}
-            elif tool_name == "memory_add":
-                arguments = {"user_id": "test-user", "content": "Test memory entry"}
-            elif tool_name == "get_audit_log":
-                arguments = {"limit": 10}
+                arguments = {"user_id": args.user_id, "query": args.query}
             else:
                 print(f"Unknown tool: {tool_name}")
+                print("Available tools: web_search, ask_human, memory_search")
                 return
 
             print(f"Arguments: {json.dumps(arguments, indent=2)}")

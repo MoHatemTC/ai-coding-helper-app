@@ -20,9 +20,4 @@ def correctness_node(state: GraphState) -> dict[str, Any]:
         language=language,
     )
 
-    return {
-        "findings": [
-            finding.model_dump()
-            for finding in findings
-        ]
-    }
+    return {"findings": [finding.model_dump() for finding in findings]}

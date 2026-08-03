@@ -278,10 +278,11 @@ Test rate limiting by making many rapid calls:
 ```python
 import asyncio
 
+
 async def test_rate_limiting():
     for i in range(35):  # Limit is 30 per 60s
         result = await web_search(query=f"test {i}")
-        print(f"Call {i+1}: {result[:50]}...")
+        print(f"Call {i + 1}: {result[:50]}...")
 ```
 
 ### Testing Memory Isolation
