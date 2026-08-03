@@ -14,6 +14,8 @@ Or to call a specific tool::
 
 import asyncio
 import json
+import sys
+from pathlib import Path
 from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
@@ -33,15 +35,9 @@ async def main():
     args = parser.parse_args()
 
     server_params = StdioServerParameters(
-        command="uv",
-        args=[
-            "run",
-            "--project",
-            "d:\\Programming\\Sprints\\ai-coding-helper-app",
-            "python",
-            "-m",
-            "mcp_server.server",
-        ],
+        command=sys.executable,
+        args=["-m", "mcp_server.server"],
+        cwd=Path(__file__).resolve().parent.parent,
         env=None,
     )
 

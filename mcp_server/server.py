@@ -21,7 +21,7 @@ sys.stdout = sys.stderr
 import json  # noqa: E402  (import order is intentional — see stdout redirect above)
 import traceback  # noqa: E402  (import order is intentional — see stdout redirect above)
 
-from mcp.server import MCPServer  # noqa: E402  (import order is intentional)
+from mcp.server.fastmcp import FastMCP  # noqa: E402  (import order is intentional)
 
 from app.core.langgraph.tools.tavily_search import tavily_search_tool  # noqa: E402
 from app.core.langgraph.tools.ask_human import ask_human as ask_human_tool  # noqa: E402
@@ -38,16 +38,39 @@ from mcp_server.guardrails import (  # noqa: E402  (import order is intentional)
 # MCP Server
 # ---------------------------------------------------------------------------
 
-mcp = MCPServer(
+mcp = FastMCP(
     name="ai-coding-helper-tools",
     instructions="""MCP server for the AI Coding Helper agent.
 
 Provides tools for:
+- MCP server status and connectivity checks
 - Web search via Tavily
 - Human-in-the-loop confirmation
 - Long-term memory search and storage
 """,
 )
+
+
+# ---------------------------------------------------------------------------
+# Tool: server_status  # noqa: ERA001
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(
+    name="server_status",
+    description="Return a dependency-free status payload for demonstrating MCP connectivity.",
+)
+async def server_status() -> str:
+    """Return a deterministic status response from the MCP server."""
+    return json.dumps(
+        {
+            "status": "ok",
+            "server": "ai-coding-helper-tools",
+            "protocol": "MCP",
+            "transport": "stdio",
+            "message": "MCP server is ready to receive tool calls.",
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
