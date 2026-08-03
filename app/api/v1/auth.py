@@ -64,7 +64,6 @@ async def get_current_user(
         HTTPException: If the token is invalid or missing.
     """
     try:
-<<<<<<< HEAD
         if credentials is None:
             raise HTTPException(
                 status_code=401,
@@ -72,8 +71,6 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         # Sanitize token
         token = sanitize_string(credentials.credentials)
 
@@ -104,11 +101,7 @@ async def get_current_user(
     except ValueError as ve:
         logger.exception("token_validation_failed", error=str(ve))
         raise HTTPException(
-<<<<<<< HEAD
             status_code=401,
-=======
-            status_code=422,
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
             detail="Invalid token format",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -129,7 +122,6 @@ async def get_current_session(
         HTTPException: If the token is invalid or missing.
     """
     try:
-<<<<<<< HEAD
         if credentials is None:
             raise HTTPException(
                 status_code=401,
@@ -137,8 +129,6 @@ async def get_current_session(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
         # Sanitize token
         token = sanitize_string(credentials.credentials)
 
@@ -171,11 +161,7 @@ async def get_current_session(
     except ValueError as ve:
         logger.exception("token_validation_failed", error=str(ve))
         raise HTTPException(
-<<<<<<< HEAD
             status_code=401,
-=======
-            status_code=422,
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
             detail="Invalid token format",
             headers={"WWW-Authenticate": "Bearer"},
         )
@@ -222,14 +208,11 @@ async def register_user(request: Request, user_data: UserCreate):
     except ValueError as ve:
         logger.exception("user_registration_validation_failed", error=str(ve))
         raise HTTPException(status_code=422, detail=str(ve))
-<<<<<<< HEAD
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("user_registration_failed", error=str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -277,14 +260,11 @@ async def login(
     except ValueError as ve:
         logger.exception("login_validation_failed", error=str(ve))
         raise HTTPException(status_code=422, detail=str(ve))
-<<<<<<< HEAD
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("login_failed", error=str(e))
         raise HTTPException(status_code=500, detail="Internal server error")
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 @router.post("/session", response_model=SessionResponse)
@@ -319,14 +299,11 @@ async def create_session(user: User = Depends(get_current_user)):
     except ValueError as ve:
         logger.exception("session_creation_validation_failed", error=str(ve), user_id=user.id)
         raise HTTPException(status_code=422, detail=str(ve))
-<<<<<<< HEAD
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("session_creation_failed", error=str(e), user_id=user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 @router.patch("/session/{session_id}/name", response_model=SessionResponse)
@@ -363,14 +340,11 @@ async def update_session_name(
     except ValueError as ve:
         logger.exception("session_update_validation_failed", error=str(ve), session_id=session_id)
         raise HTTPException(status_code=422, detail=str(ve))
-<<<<<<< HEAD
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("session_update_failed", error=str(e), session_id=session_id)
         raise HTTPException(status_code=500, detail="Internal server error")
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 @router.delete("/session/{session_id}")
@@ -400,14 +374,11 @@ async def delete_session(session_id: str, current_session: Session = Depends(get
     except ValueError as ve:
         logger.exception("session_deletion_validation_failed", error=str(ve), session_id=session_id)
         raise HTTPException(status_code=422, detail=str(ve))
-<<<<<<< HEAD
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("session_deletion_failed", error=str(e), session_id=session_id)
         raise HTTPException(status_code=500, detail="Internal server error")
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
@@ -433,11 +404,8 @@ async def get_user_sessions(user: User = Depends(get_current_user)):
     except ValueError as ve:
         logger.exception("get_sessions_validation_failed", user_id=user.id, error=str(ve))
         raise HTTPException(status_code=422, detail=str(ve))
-<<<<<<< HEAD
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("get_sessions_failed", error=str(e), user_id=user.id)
         raise HTTPException(status_code=500, detail="Internal server error")
-=======
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
