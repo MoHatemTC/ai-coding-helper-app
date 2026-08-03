@@ -14,6 +14,7 @@ from urllib.parse import quote_plus
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     BaseMessage,
     ToolMessage,
     convert_to_openai_messages,
@@ -61,7 +62,6 @@ from app.schemas import (
     GraphState,
     Message,
 )
-from app.schemas.review import InboundTriggerReason
 from app.services.llm import llm_service
 from app.services.memory import memory_service
 from app.utils import (

@@ -10,23 +10,12 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-<<<<<<< HEAD
 from app.core.config import settings
 from app.core.logging import logger
 
 _TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
 _API_KEY = SecretStr(settings.LITELLM_API_KEY)
 _BASE_URL = settings.LITELLM_BASE_URL
-=======
-from app.core.config import (
-    Environment,
-    settings,
-)
-from app.core.logging import logger
-
-_TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
-_API_KEY = SecretStr(settings.OPENAI_API_KEY)
->>>>>>> d372769 (Coding Helper — AI Mentor & Senior Code Reviewer (FastAPI + LangGraph))
 
 
 class LLMRegistry:
@@ -49,6 +38,7 @@ class LLMRegistry:
     # fallback *slot* without adding a fallback *model* -- the circular
     # fallback loop would have retried the same already-failed model twice.
     LLMS: List[Dict[str, Any]] = [
+<<<<<<< HEAD
         {
             "name": "fw-kimi-k2.6",
             "llm": ChatOpenAI(
@@ -109,6 +99,32 @@ class LLMRegistry:
             ),
         },
     ]
+=======
+    {
+        "name": "gemini/gemini-3-flash-preview",
+        "llm": ChatOpenAI(
+            model="gemini/gemini-3-flash-preview",
+            api_key=_API_KEY,
+            base_url=_BASE_URL,
+            temperature=settings.DEFAULT_LLM_TEMPERATURE,
+            model_kwargs={"max_completion_tokens": 6000},
+            use_responses_api=False,
+        ),
+    },
+    {
+        "name": "gemini/gemini-3.1-flash-lite",
+        "llm": ChatOpenAI(
+            model="gemini/gemini-3.1-flash-lite",
+            api_key=_API_KEY,
+            base_url=_BASE_URL,
+            temperature=settings.DEFAULT_LLM_TEMPERATURE,
+            model_kwargs={"max_completion_tokens": 6000},
+            use_responses_api=False,
+        ),
+    },
+]
+    
+>>>>>>> 2d7e6be (edit files needed to be edited)
 
     @classmethod
     def get(cls, model_name: str, **kwargs) -> BaseChatModel:

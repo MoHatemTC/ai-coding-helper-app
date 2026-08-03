@@ -13,7 +13,7 @@ graph TB
     end
 
     subgraph Agent["LangGraph Agent"]
-        Graph["StateGraph\n(chat → tool_call → chat)"]
+        Graph["StateGraph\n(single agent self-loop)"]
         Checkpointer["AsyncPostgresSaver\n(conversation state)"]
     end
 
@@ -68,13 +68,13 @@ sequenceDiagram
         G->>Mem: search relevant memories
     end
 
-    G->>L: chat node — system prompt + context + messages
+    G->>L: agent node — system prompt + context + messages
     L-->>G: response with tool_calls?
 
     alt has tool calls
         G->>T: execute tools concurrently
         T-->>G: tool results
-        G->>L: chat node again with tool results
+        G->>L: agent node again with tool results
         L-->>G: final response
     end
 
@@ -85,18 +85,18 @@ sequenceDiagram
 
 ## Agent graph
 
-The agent is a two-node `StateGraph`:
+The agent is a single-node, self-looping `StateGraph`:
 
 ```mermaid
 graph LR
-    START --> chat
-    chat -->|tool_calls present| tool_call
-    tool_call --> chat
-    chat -->|no tool_calls| END
+    START --> agent
+    agent -->|tool_calls present| agent
+    agent -->|no tool_calls| END
 ```
 
-- **`chat` node** — builds the system prompt, calls the LLM, returns a `Command` routing to `tool_call` or `END`
-- **`tool_call` node** — executes all tool calls concurrently, feeds results back to `chat`
+- **`agent` node** — owns the model decision, tool selection, tool execution, and observation loop
+- **Self-loop checkpoint boundary** — commits the assistant tool-call message before executing tools, which preserves safe `ask_human` interrupt/resume behavior
+- **Step bound** — `AGENT_MAX_STEPS` is translated into a LangGraph recursion limit so the loop cannot run indefinitely
 - **Checkpointer** — `AsyncPostgresSaver` persists the full `GraphState` per `thread_id` (session), enabling resume on interrupts and multi-turn memory
 
 ## Key design decisions
