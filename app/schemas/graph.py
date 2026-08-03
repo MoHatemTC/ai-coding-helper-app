@@ -41,6 +41,3 @@ class GraphState(BaseModel):
     inbound_trigger_reason: str | None = Field(default=None)
     outbound_trigger_reason: str | None = Field(default=None)
     constructive_redirect: str | None = Field(default=None)
-
-    # Inbound redaction flag
-    user_query_redacted: bool = Field(default=False, description="True when inbound query was flagged and redacted")

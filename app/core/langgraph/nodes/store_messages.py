@@ -28,7 +28,6 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
             human_message = message
             break
     final_response = state.final_response
-    user_query_redacted = state.user_query_redacted
     file_dicts = [attachment.model_dump() for attachment in state.uploaded_files] or None
 
     sql_messages: list[dict[str, Any]] = []
@@ -45,10 +44,10 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
             message_service.store_messages(user_id=int(user_id), session_id=session_id, messages=sql_messages)
         )
 
-    # Redacted human input remains available in the checkpoint but is never
-    # promoted to semantic long-term memory. The approved assistant answer is.
+    # The human message in state is already redacted in place by the inbound
+    # guardrail; the fact-extraction prompt filters any redaction placeholders.
     memory_messages: list[dict[str, str]] = []
-    if human_message and human_message.content and not user_query_redacted:
+    if human_message and human_message.content:
         memory_messages.append({"role": "user", "content": str(human_message.content)})
     if isinstance(final_response, str) and final_response:
         memory_messages.append({"role": "assistant", "content": final_response})
@@ -62,7 +61,6 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
         "approved_messages_stored",
         session_id=session_id,
         user_id=user_id,
-        user_query_redacted=user_query_redacted,
         assistant_response_stored=bool(final_response),
     )
     return {}

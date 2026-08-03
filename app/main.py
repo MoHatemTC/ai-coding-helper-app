@@ -1,8 +1,14 @@
 """This file contains the main application entry point."""
 
 import asyncio
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
+
+# Windows: psycopg's async connection pool requires the selector loop policy,
+# not the default ProactorEventLoop — otherwise pool acquisition hangs.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from dotenv import load_dotenv
 from fastapi import (

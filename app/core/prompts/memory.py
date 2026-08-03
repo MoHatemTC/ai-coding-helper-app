@@ -36,6 +36,9 @@ Irrelevant facts (DO NOT extract):
 - Location, age, or other personal demographics
 - Anything not related to software development or coding
 - Anything only the ASSISTANT said, explained, or suggested (see SOURCE RULE)
+- Anything containing a redaction placeholder (e.g. [REDACTED_...], \
+[REDACTED_SECRET]) or otherwise describing a masked secret or credential — \
+that is a redaction mask over user input, never a real fact about the user
 
 OUTPUT RULES:
 - Deduplicate: each distinct fact must appear exactly once. Do not restate \
@@ -100,6 +103,8 @@ ground (e.g. keep "backend developer" over "software engineer")
 (e.g. "uses FastAPI" + "uses PostgreSQL" → "builds FastAPI apps with \
 PostgreSQL", type: "stack")
 - Drop any facts NOT related to software development or coding
+- Drop any facts containing redaction placeholders (e.g. [REDACTED_...], \
+[REDACTED_SECRET]) — masked secrets are not real facts
 - If a blocker fact appears resolved by a later/contradicting fact (e.g. \
 "struggling with X" + a later fact implying X was fixed), drop the resolved \
 blocker rather than an unrelated fact
