@@ -1,0 +1,83 @@
+.auth-shell {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 24px;
+  background: radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--mat-sys-primary) 18%, transparent), transparent 60%),
+    var(--app-bg);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px;
+  border-radius: 16px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 40%);
+}
+
+.brand {
+  text-align: center;
+}
+
+.brand-icon {
+  font-size: 40px;
+  width: 40px;
+  height: 40px;
+  color: var(--mat-sys-primary);
+}
+
+.brand-title {
+  margin: 8px 0 4px;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--app-text);
+}
+
+.brand-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-form mat-form-field {
+  width: 100%;
+}
+
+.strength-hint {
+  margin: 0 0 4px;
+  font-size: 12px;
+  color: var(--app-text-faint);
+}
+
+.auth-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--mat-sys-error);
+  background: color-mix(in srgb, var(--mat-sys-error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-error) 35%, transparent);
+}
+
+.submit-btn {
+  min-height: 44px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:host {
+  display: block;
+  height: 100%;
+}

@@ -1,0 +1,50 @@
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.messages {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 24px 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-controls {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 12px;
+}
+
+.welcome {
+  margin: auto;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--app-text-muted);
+
+  h2 {
+    margin: 16px 0 8px;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--app-text);
+  }
+
+  p {
+    margin: 0 auto;
+    max-width: 460px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}
+
+.welcome-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--mat-sys-primary);
+}
+
+.scroll-sentinel {
+  height: 16px;
+}

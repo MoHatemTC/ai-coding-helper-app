@@ -1,0 +1,36 @@
+.chat-shell {
+  height: 100%;
+}
+
+.chat-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--app-bg);
+}
+
+.app-sidebar-nav {
+  width: var(--app-sidebar-width);
+  background: var(--app-surface);
+  border-right: 1px solid var(--app-border);
+}
+
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--app-text-muted);
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+:host {
+  display: block;
+  height: 100%;
+}

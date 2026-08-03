@@ -1,0 +1,61 @@
+<div class="sidebar">
+  <div class="sidebar-head">
+    <span class="app-title">AI Coding Helper</span>
+    <button mat-icon-button aria-label="New chat" (click)="newChat()" [disabled]="creating()">
+      <mat-icon>add_comment</mat-icon>
+    </button>
+  </div>
+
+  <div class="session-list app-scrollbar">
+    @for (session of list(); track session.session_id) {
+      <div class="session-row" [class.active]="session.session_id === activeId()">
+        @if (editingId() === session.session_id) {
+          <input
+            class="rename-input"
+            #renameInput
+            [(ngModel)]="editName"
+            (keydown.enter)="saveRename(session.session_id)"
+            (keydown.escape)="cancelRename()"
+            (blur)="saveRename(session.session_id)"
+          />
+        } @else {
+          <button class="session-button" (click)="select(session.session_id)">
+            <mat-icon class="session-icon">chat</mat-icon>
+            <span class="session-name">{{ session.name || 'New chat' }}</span>
+          </button>
+          <button
+            mat-icon-button
+            class="session-menu"
+            aria-label="Session options"
+            [matMenuTriggerFor]="menu"
+            (click)="$event.stopPropagation()"
+          >
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu">
+            <button mat-menu-item (click)="startRename(session.session_id, session.name)">
+              <mat-icon>edit</mat-icon>
+              <span>Rename</span>
+            </button>
+            <button mat-menu-item (click)="deleteSession(session.session_id)">
+              <mat-icon>delete</mat-icon>
+              <span>Delete</span>
+            </button>
+          </mat-menu>
+        }
+      </div>
+    } @empty {
+      <div class="empty-sessions">No conversations yet.</div>
+    }
+  </div>
+
+  <div class="sidebar-foot">
+    <div class="user-chip">
+      <mat-icon class="user-avatar">account_circle</mat-icon>
+      <span class="user-label">{{ userLabel() }}</span>
+      <button mat-icon-button aria-label="Sign out" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+      </button>
+    </div>
+  </div>
+</div>

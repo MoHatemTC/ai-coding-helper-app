@@ -1,0 +1,260 @@
+.bubble-row {
+  display: flex;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.bubble {
+  max-width: 100%;
+}
+
+.assistant {
+  justify-content: flex-start;
+}
+
+.user {
+  justify-content: flex-end;
+}
+
+.assistant-bubble {
+  width: 100%;
+  padding: 12px 4px 4px;
+}
+
+.user-bubble {
+  max-width: min(82%, 720px);
+  background: var(--app-surface-raised);
+  border: 1px solid var(--app-border);
+  border-radius: 16px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--app-text);
+}
+
+.user-content {
+  white-space: pre-wrap;
+}
+
+.file-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--app-border);
+}
+
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font-size: 12.5px;
+  cursor: default;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--app-text-muted);
+  }
+
+  &.downloadable {
+    cursor: pointer;
+    border-color: color-mix(in srgb, var(--mat-sys-primary) 40%, var(--app-border));
+
+    &:hover {
+      background: var(--app-surface-hover);
+    }
+  }
+
+  &:disabled {
+    opacity: 1;
+  }
+}
+
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-lang {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mat-sys-secondary-container) 60%, transparent);
+  color: var(--app-text-muted);
+  font-size: 11px;
+}
+
+.error-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mat-sys-error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-error) 35%, transparent);
+  color: var(--mat-sys-error);
+  font-size: 14px;
+}
+
+.typing {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0;
+
+  span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--app-text-muted);
+    animation: typing-bounce 1.2s infinite ease-in-out;
+
+    &:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+  }
+}
+
+.bubble-actions {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .assistant-bubble:hover & {
+    opacity: 1;
+  }
+
+  button {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--app-text-muted);
+    }
+  }
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+
+  30% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+// Markdown rendering
+:host ::ng-deep .markdown-body {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--app-text);
+  word-break: break-word;
+
+  p {
+    margin: 0 0 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  pre {
+    position: relative;
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #101018;
+    border: 1px solid var(--app-border);
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: 'Cascadia Code', Consolas, Menlo, monospace;
+    font-size: 13px;
+  }
+
+  :not(pre) > code {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--app-surface-raised);
+    border: 1px solid var(--app-border);
+    font-size: 13px;
+  }
+
+  pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    white-space: pre;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: 20px 0 8px;
+    line-height: 1.3;
+    color: var(--app-text);
+  }
+
+  ul,
+  ol {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+
+  li {
+    margin: 4px 0;
+  }
+
+  blockquote {
+    margin: 12px 0;
+    padding: 4px 14px;
+    border-left: 3px solid var(--mat-sys-primary);
+    color: var(--app-text-muted);
+  }
+
+  table {
+    border-collapse: collapse;
+    margin: 12px 0;
+
+    th,
+    td {
+      padding: 6px 12px;
+      border: 1px solid var(--app-border);
+    }
+  }
+
+  a {
+    color: var(--mat-sys-primary);
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 8px;
+  }
+}

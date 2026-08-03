@@ -1,0 +1,145 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 12px 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--app-text);
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.session-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+
+  &:hover {
+    background: var(--app-surface-hover);
+  }
+
+  &.active {
+    background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+
+    .session-name {
+      color: var(--app-text);
+    }
+  }
+}
+
+.session-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 8px 10px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.session-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--app-text-muted);
+}
+
+.session-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--app-text-muted);
+}
+
+.session-menu {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .session-row:hover &,
+  .session-row.active & {
+    opacity: 1;
+  }
+}
+
+.rename-input {
+  flex: 1;
+  margin: 6px 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--mat-sys-primary);
+  background: var(--app-surface-raised);
+  color: var(--app-text);
+  font-size: 14px;
+  outline: none;
+}
+
+.empty-sessions {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--app-text-faint);
+}
+
+.sidebar-foot {
+  padding: 12px;
+  border-top: 1px solid var(--app-border);
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: var(--app-surface-raised);
+
+  &:hover {
+    background: var(--app-surface-hover);
+  }
+}
+
+.user-avatar {
+  color: var(--mat-sys-primary);
+}
+
+.user-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}

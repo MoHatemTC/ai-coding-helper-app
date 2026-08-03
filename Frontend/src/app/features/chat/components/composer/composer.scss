@@ -1,0 +1,117 @@
+.composer {
+  flex-shrink: 0;
+  padding: 8px 24px 16px;
+}
+
+.composer-box {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-raised);
+  box-shadow: 0 4px 24px rgb(0 0 0 / 30%);
+  transition: border-color 0.15s ease;
+
+  &:focus-within {
+    border-color: color-mix(in srgb, var(--mat-sys-primary) 60%, var(--app-border));
+  }
+}
+
+.file-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 4px 8px;
+}
+
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+  font-size: 12.5px;
+  color: var(--app-text);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--app-text-muted);
+  }
+}
+
+.file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-file {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.composer-input {
+  flex: 1;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--app-text);
+  font-family: inherit;
+  font-size: 14.5px;
+  line-height: 1.6;
+  padding: 8px 4px;
+  max-height: 200px;
+
+  &::placeholder {
+    color: var(--app-text-faint);
+  }
+}
+
+.send-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.stop-btn {
+  color: var(--mat-sys-error);
+
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.composer-hint {
+  padding: 4px 8px 0;
+  font-size: 11.5px;
+  color: var(--app-text-faint);
+  text-align: center;
+}

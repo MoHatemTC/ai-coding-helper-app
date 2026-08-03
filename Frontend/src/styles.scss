@@ -1,0 +1,75 @@
+@use '@angular/material' as mat;
+
+// Material 3 dark theme. `color-scheme: dark` switches the theme tokens
+// from the light to the dark variant of the selected palettes.
+html {
+  height: 100%;
+
+  color-scheme: dark;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$azure-palette,
+        tertiary: mat.$blue-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+}
+
+// Application-level design tokens for the chat surfaces.
+:root {
+  --app-bg: #0b0b0f;
+  --app-surface: #131318;
+  --app-surface-raised: #1b1b22;
+  --app-surface-hover: #22222b;
+  --app-border: #2a2a35;
+  --app-text: #e7e7ee;
+  --app-text-muted: #9b9ba8;
+  --app-text-faint: #6b6b78;
+  --app-accent: var(--mat-sys-primary);
+  --app-sidebar-width: 280px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  overflow: hidden;
+}
+
+// Shared scrollbar styling for chat panes.
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--app-border);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+// Markdown + Prism styling lives inside the bubble component scope.

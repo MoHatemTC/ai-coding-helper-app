@@ -1,0 +1,155 @@
+<div class="auth-shell">
+  <div class="auth-card">
+    <div class="brand">
+      <mat-icon class="brand-icon">auto_awesome</mat-icon>
+      <h1 class="brand-title">AI Coding Helper</h1>
+      <p class="brand-subtitle">Code review, debugging and explanations with file-aware context.</p>
+    </div>
+
+    <mat-button-toggle-group
+      (valueChange)="switchMode($event)"
+      [value]="mode()"
+      aria-label="Auth mode"
+    >
+      <mat-button-toggle value="login">Sign in</mat-button-toggle>
+      <mat-button-toggle value="register">Create account</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    @if (mode() === 'login') {
+      <form [formGroup]="loginForm" (ngSubmit)="submitLogin()" class="auth-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <mat-icon matPrefix>mail</mat-icon>
+          <input matInput formControlName="email" type="email" autocomplete="email" />
+          @if (loginForm.controls.email.hasError('email') && loginForm.controls.email.touched) {
+            <mat-error>Enter a valid email address</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Password</mat-label>
+          <mat-icon matPrefix>lock</mat-icon>
+          <input
+            matInput
+            formControlName="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            autocomplete="current-password"
+          />
+          <button
+            matIconSuffix
+            type="button"
+            mat-icon-button
+            aria-label="Toggle password visibility"
+            (click)="showPassword.set(!showPassword())"
+          >
+            <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+
+        @if (errorMessage(); as message) {
+          <div class="auth-error">{{ message }}</div>
+        }
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="submit-btn"
+          [disabled]="loginForm.invalid || submitting()"
+        >
+          @if (submitting()) {
+            <mat-spinner diameter="20" />
+          } @else {
+            Sign in
+          }
+        </button>
+      </form>
+    } @else {
+      <form [formGroup]="registerForm" (ngSubmit)="submitRegister()" class="auth-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Display name (optional)</mat-label>
+          <mat-icon matPrefix>person</mat-icon>
+          <input matInput formControlName="username" autocomplete="nickname" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <mat-icon matPrefix>mail</mat-icon>
+          <input matInput formControlName="email" type="email" autocomplete="email" />
+          @if (registerForm.controls.email.hasError('email') && registerForm.controls.email.touched) {
+            <mat-error>Enter a valid email address</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Password</mat-label>
+          <mat-icon matPrefix>lock</mat-icon>
+          <input
+            matInput
+            formControlName="password"
+            [type]="showPassword() ? 'text' : 'password'"
+            autocomplete="new-password"
+          />
+          <button
+            matIconSuffix
+            type="button"
+            mat-icon-button
+            aria-label="Toggle password visibility"
+            (click)="showPassword.set(!showPassword())"
+          >
+            <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (registerForm.controls.password.hasError('minlength') && registerForm.controls.password.touched) {
+            <mat-error>Password must be at least 8 characters</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Confirm password</mat-label>
+          <mat-icon matPrefix>lock</mat-icon>
+          <input
+            matInput
+            formControlName="confirm"
+            [type]="showConfirm() ? 'text' : 'password'"
+            autocomplete="new-password"
+          />
+          <button
+            matIconSuffix
+            type="button"
+            mat-icon-button
+            aria-label="Toggle password visibility"
+            (click)="showConfirm.set(!showConfirm())"
+          >
+            <mat-icon>{{ showConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          @if (
+            registerForm.controls.confirm.touched &&
+            registerForm.controls.confirm.value !== registerForm.controls.password.value
+          ) {
+            <mat-error>Passwords do not match</mat-error>
+          }
+        </mat-form-field>
+
+        <p class="strength-hint">Password needs 8+ chars, upper, lower, number and special character.</p>
+
+        @if (errorMessage(); as message) {
+          <div class="auth-error">{{ message }}</div>
+        }
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          class="submit-btn"
+          [disabled]="registerForm.invalid || submitting()"
+        >
+          @if (submitting()) {
+            <mat-spinner diameter="20" />
+          } @else {
+            Create account
+          }
+        </button>
+      </form>
+    }
+  </div>
+</div>
