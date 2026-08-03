@@ -22,7 +22,7 @@ export class StreamService {
     options: StreamOptions,
   ): Promise<void> {
     const token = this.session.activeToken;
-    const url = `${environment.apiUrl}/chat/stream`;
+    const url = `${environment.apiUrl}/chatbot/chat/stream`;
 
     const body = new FormData();
     body.append('message', message);

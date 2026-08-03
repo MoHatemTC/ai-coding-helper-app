@@ -63,7 +63,9 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
             ],
             model_name=os.environ.get("SESSION_NAMING_MODEL", "llama-3.1-8b-instant"),
             response_format=SessionTitle,
-            max_tokens=32,
+            # Reasoning models spend output budget "thinking" before emitting the
+            # title; a tiny cap truncates mid-reasoning and the structured-output
+            # parser then fails with LengthFinishReasonError.
             temperature=0.3,
         )
         await database_service.update_session_name(session_id, result.title)

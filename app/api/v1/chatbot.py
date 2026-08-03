@@ -156,13 +156,14 @@ async def chat_stream(
             )
             message = f"{message}\n\nUploaded files:\n{file_details}"
 
+        user_message = MessageSchema(role="user", content=message)
+
         if settings.SESSION_NAMING_ENABLED:
-            maybe_name_session(session.id, session.name, [message])
+            maybe_name_session(session.id, session.name, [user_message])
 
         async def event_generator():
             """Generate streaming events."""
             try:
-                user_message = MessageSchema(role="user", content=message)
                 with llm_stream_duration_seconds.labels(model=agent.model_name).time():
                     async for chunk in agent.get_stream_response(
                         user_message,
