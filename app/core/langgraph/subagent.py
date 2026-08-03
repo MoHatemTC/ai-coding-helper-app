@@ -9,6 +9,8 @@ raw search results polluting the conversation, the agent sees a focused
 150-token summary.
 """
 
+from typing import Any
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 

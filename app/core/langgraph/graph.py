@@ -50,9 +50,9 @@ from app.core.config import (
 from app.core.langgraph.nodes.inbound_first_stage import inbound_dlp_node
 from app.core.langgraph.nodes.inbound_intent import inbound_intent_node
 from app.core.langgraph.nodes.outbound import SAFE_TIMEOUT_RESPONSE, outbound_node
-from app.core.langgraph.tools import STATE_INJECTED_REVIEW_TOOLS
-from app.core.langgraph.tools import tools as bound_tools
-from app.core.langgraph.tools.mcp_tools import get_mcp_tools
+from app.core.langgraph.nodes.performance_node import performance_review_node
+from app.core.langgraph.nodes.security_review import security_review_node
+from app.core.langgraph.tools import tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
 from app.core.observability import get_langfuse_callback_handler
@@ -501,6 +501,68 @@ class LangGraphAgent:
             )
             raise Exception(f"failed to get llm response after trying all models: {str(e)}")
 
+    # Define our tool node
+    async def _tool_call(self, state: GraphState) -> Command:
+        """Process tool calls from the last message.
+
+        Reads: messages (last message's tool_calls)
+        Writes: messages (one ToolMessage per call)
+        Routes to: "chat" (always -- the model gets a turn to use the result)
+        """
+        existing_messages = state.get("messages") or []
+        last_message = existing_messages[-1] if existing_messages else None
+        tool_calls: list[ToolCall] = last_message.tool_calls if isinstance(last_message, AIMessage) else []
+
+        async def _execute_tool(tool_call: ToolCall) -> ToolMessage:
+            tool_result = await self.tools_by_name[tool_call["name"]].ainvoke(tool_call["args"])
+            return ToolMessage(
+                content=tool_result,
+                name=tool_call["name"],
+                tool_call_id=tool_call["id"],
+            )
+
+        # Execute tool calls concurrently when multiple are requested
+        if len(tool_calls) == 1:
+            outputs = [await _execute_tool(tool_calls[0])]
+        else:
+            outputs = list(await asyncio.gather(*[_execute_tool(tc) for tc in tool_calls]))
+
+        return Command(update={"messages": outputs}, goto="chat")
+
+    async def _outbound(self, state: GraphState) -> dict[str, Any]:
+        """Run the outbound guardrail, then repair the persisted transcript if it blocks.
+
+        outbound_node itself only decides what text should be *delivered*
+        (`final_response`); it doesn't touch `messages`. Without this
+        wrapper, a blocked draft (e.g. a full-solution leak) would still sit
+        in `state["messages"]` forever -- checkpointed, fed back to the LLM
+        as context on the next turn, and pushed to long-term memory. This
+        replaces that message in place (same message `id`, so the
+        `add_messages` reducer overwrites rather than appends) whenever the
+        draft is blocked.
+
+        Reads: draft_response, sanitized_query, sanitized_code (via outbound_node)
+        Writes: is_safe_output, outbound_trigger_reason, constructive_redirect,
+            final_response, and -- only when blocked -- messages
+        """
+        # outbound_node predates the TypedDict rebuild and is typed against
+        # dict[str, Any]; GraphState *is* a plain dict at runtime, so this cast
+        # is structurally sound, not a behavior change.
+        result = await outbound_node(cast(dict[str, Any], state))
+        if not result.get("is_safe_output", True):
+            existing_messages = state.get("messages") or []
+            draft_ai_message = existing_messages[-1] if existing_messages else None
+            safe_text = result.get("final_response") or SAFE_TIMEOUT_RESPONSE
+            message_id = getattr(draft_ai_message, "id", None)
+            result["messages"] = [
+                AIMessage(content=safe_text, id=message_id) if message_id else AIMessage(content=safe_text)
+            ]
+        return result
+
+    # ------------------------------------------------------------------
+    # Graph assembly
+    # ------------------------------------------------------------------
+
     async def create_graph(self) -> Optional[CompiledStateGraph]:
         """Create and configure the LangGraph workflow.
 
@@ -535,10 +597,21 @@ class LangGraphAgent:
                 graph_builder.add_node("inbound_dlp", cast(Any, inbound_dlp_node))
                 graph_builder.add_node("inbound_intent", cast(Any, inbound_intent_node))
                 graph_builder.add_node("guardrail_redirect", self._guardrail_redirect, destinations=(END,))
+
+                # Parallel review lanes -- each appends to `findings` (operator.add)
+                graph_builder.add_node("correctness", correctness_node)
+                graph_builder.add_node("security", cast(Any, security_review_node))
+                graph_builder.add_node("performance", cast(Any, performance_review_node))
+
+                # Hint escalation
+                graph_builder.add_node("hints", self._hints)
+
+                # Chat (single user-facing voice) + tool loop + outbound guardrail
+                graph_builder.add_node("chat", self._chat, destinations=("tool_call", "outbound"))
                 graph_builder.add_node(
-                    "agent",
-                    self._agent,
-                    destinations=("agent", "outbound"),
+                    "tool_call",
+                    self._tool_call,
+                    destinations=("chat",),
                     retry_policy=RetryPolicy(max_attempts=3),
                 )
                 graph_builder.add_node("outbound", self._outbound)

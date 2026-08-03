@@ -7,6 +7,7 @@ Run with::
 Or register as a stdio MCP server in your Cline/VSCode config.
 """
 
+import os
 import sys
 
 # CRITICAL: Redirect stdout to stderr BEFORE any imports.
@@ -18,8 +19,23 @@ import sys
 _real_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-import json  # noqa: E402  (import order is intentional — see stdout redirect above)
-import traceback  # noqa: E402  (import order is intentional — see stdout redirect above)
+import json
+import traceback
+from typing import Any
+
+# CRITICAL: Redirect stdout to stderr BEFORE any imports.
+# The MCP stdio protocol expects stdout to contain ONLY JSON-RPC messages.
+# The app's structlog logging and FastMCP's debug prints go to stdout by
+# default, which corrupts the protocol. Redirecting stdout to stderr ensures
+# all logging output goes to stderr (which Cline/the client ignores) while
+# keeping stdout clean for JSON-RPC only.
+_real_stdout = sys.stdout
+sys.stdout = sys.stderr
+
+from app.core.langgraph.tools.tavily_search import tavily_search_tool
+from app.core.langgraph.tools.ask_human import ask_human as ask_human_tool
+from app.services.memory import memory_service
+
 
 from mcp.server import Server
 

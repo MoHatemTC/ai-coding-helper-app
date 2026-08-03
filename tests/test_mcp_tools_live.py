@@ -25,8 +25,13 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+<<<<<<< HEAD
 from dotenv import load_dotenv  # noqa: E402  (imports follow sys.path setup)
 from mcp_server.server import (  # noqa: E402  (imports follow sys.path setup)
+=======
+from dotenv import load_dotenv
+from mcp_server.server import (
+>>>>>>> 73d9505 (edited tools)
     memory_search,
     web_search,
 )
@@ -95,7 +100,14 @@ async def test_memory_search() -> None:
 
     # Search for the memory
     print("Searching memories about programming preferences...")
+<<<<<<< HEAD
     result = await memory_search(user_id=user_id, query="What programming languages does the user prefer?")
+=======
+    result = await memory_search(
+        user_id=user_id,
+        query="What programming languages does the user prefer?"
+    )
+>>>>>>> 73d9505 (edited tools)
     print_result("memory_search", result)
 
 
@@ -143,7 +155,11 @@ async def main() -> int:
         return 1
 
     # Print configuration
+<<<<<<< HEAD
     print("\nConfiguration:")
+=======
+    print(f"\nConfiguration:")
+>>>>>>> 73d9505 (edited tools)
     print(f"  OpenAI Base URL: {os.getenv('OPENAI_BASE_URL')}")
     print(f"  Default Model: {os.getenv('DEFAULT_LLM_MODEL', 'gpt-4')}")
     print(f"  Project Root: {project_root}")
@@ -165,7 +181,10 @@ async def main() -> int:
             results.append((test_name, f"❌ FAILED: {e}"))
             print(f"\n❌ Test failed with error: {e}")
             import traceback
+<<<<<<< HEAD
 
+=======
+>>>>>>> 73d9505 (edited tools)
             traceback.print_exc()
 
     # Print summary
@@ -179,10 +198,18 @@ async def main() -> int:
         print(f"\n❌ {failed} test(s) failed")
         return 1
     else:
+<<<<<<< HEAD
         print("\n✅ All tests passed!")
+=======
+        print(f"\n✅ All tests passed!")
+>>>>>>> 73d9505 (edited tools)
         return 0
 
 
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
+<<<<<<< HEAD
     sys.exit(exit_code)
+=======
+    sys.exit(exit_code)
+>>>>>>> 73d9505 (edited tools)
