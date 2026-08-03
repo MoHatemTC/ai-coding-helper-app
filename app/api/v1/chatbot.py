@@ -26,10 +26,76 @@ from app.schemas.chat import (
     ChatResponse,
     StreamResponse,
 )
+from pydantic import BaseModel
+from typing import Any, Optional
+from app.api.v1.auth import get_current_session
 from app.services.session_naming import maybe_name_session
+from app.schemas.chat import ChatRequest, ChatResponse, StreamResponse, Message
+from app.core.agent import get_agent
+
 
 router = APIRouter()
 agent = LangGraphAgent()
+
+
+
+
+# --- Compatibility model for tests that post {"thread_id","message"} ---
+class SimpleChatRequest(BaseModel):
+    thread_id: str
+    message: str
+    code: Optional[str] = None
+    language: Optional[str] = None
+
+
+@router.post("", response_model=ChatResponse)
+@limiter.limit(settings.RATE_LIMIT_ENDPOINTS["chat"][0])
+async def chat_compat(
+    request: Request,
+    payload: SimpleChatRequest,
+    session: Session = Depends(get_current_session),
+):
+    """
+    Compatibility endpoint for POST /api/v1/chatbot
+    Accepts {"thread_id","message"} (used by tests) and forwards to the
+    existing agent.get_response which expects ChatRequest/messages.
+    """
+    try:
+        logger.info(
+            "chat_request_received_compat",
+            session_id=session.id,
+            message_preview=payload.message[:120],
+        )
+
+        # Convert the simple message into the ChatRequest shape expected by agent
+        # Adjust the message format to match your ChatRequest.messages schema.
+        # Here we assume messages is a list of dicts with role/content.
+        # --- Build a list[Message] (use the Message model from app.schemas.chat) ---
+        messages: list[Message] = [Message(role="user", content=payload.message)]
+
+        # If you use session naming, attempt to name session
+        if settings.SESSION_NAMING_ENABLED:
+            # we don't have the full messages list here; skip or call maybe_name_session
+            pass
+
+
+        # If your ChatRequest model is different, adapt this conversion accordingly.
+        result = await agent.get_response(
+            messages,
+            payload.thread_id,
+            user_id=str(session.user_id),
+            username=session.username,
+            code=payload.code,
+            language=payload.language,
+        )
+
+        logger.info("chat_request_processed_compat", session_id=session.id)
+
+        return ChatResponse(messages=result)
+    except Exception as e:
+        logger.exception("chat_request_failed_compat", session_id=session.id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @router.post("/chat", response_model=ChatResponse)

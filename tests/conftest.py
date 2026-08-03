@@ -6,8 +6,32 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-
+from uuid import uuid4
 from app.services.memory import MemoryService
+from typing import Generator
+from fastapi.testclient import TestClient
+
+from app.main import app  # <-- adjust to `from app.main import app` if main.py lives inside app/
+from app.api.v1.auth import get_current_session
+from app.models.session import Session
+@pytest.fixture
+
+@pytest.fixture
+def client(test_session_obj: Session) -> Generator[TestClient, None, None]:
+    """
+    TestClient fixture that overrides the auth dependency to return a fake session.
+    Annotated as a Generator so type checkers (Pylance) are satisfied.
+    """
+    # Use async override if get_current_session is async; otherwise use a normal def.
+    async def _override_get_current_session() -> Session:
+        return test_session_obj
+
+    app.dependency_overrides[get_current_session] = _override_get_current_session
+
+    with TestClient(app) as c:
+        yield c
+
+    app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -132,3 +156,13 @@ def memory_service(
 def sample_messages() -> list[dict[str, Any]]:
     """Return a list of sample messages."""
     return list(SAMPLE_MESSAGES)
+
+@pytest.fixture(scope="session")
+def test_session_obj():
+    return Session(
+        id=str(uuid4()),
+        user_id=1,
+        username="test-user",
+        name="test-session",
+    )
+
