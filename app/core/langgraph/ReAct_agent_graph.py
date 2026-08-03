@@ -9,13 +9,13 @@ import asyncio
 from typing import (
     AsyncGenerator,
     Optional,
-    cast,
 )
 from urllib.parse import quote_plus
 
 from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import (
+    AIMessage,
     SystemMessage,
 )
 from langchain_core.runnables.config import RunnableConfig
@@ -41,11 +41,10 @@ from app.core.config import (
     Environment,
     settings,
 )
-from app.core.langgraph.nodes.collect_draft import collect_draft_node
 from app.core.langgraph.nodes.document_pipeline import document_pipeline_node
 from app.core.langgraph.nodes.inbound_intent import inbound_intent_node
+from app.core.langgraph.nodes.inbound_first_stage import secret_guardrail_node
 from app.core.langgraph.nodes.outbound import outbound_node
-from app.core.langgraph.nodes.reask import reask_node
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
 from app.core.langgraph.tools.code_search import (
@@ -80,6 +79,14 @@ _agent = create_agent(
     tools=[duckduckgo_search_tool, search_code],
     name="agent",
 )
+
+
+def _last_ai_message_content(messages: list) -> str:
+    """Return the content of the last non-empty AIMessage in the list, if any."""
+    for message in reversed(messages):
+        if isinstance(message, AIMessage) and isinstance(message.content, str) and message.content:
+            return message.content
+    return ""
 
 
 class ReActAgent:
@@ -136,31 +143,18 @@ class ReActAgent:
                 graph_builder = StateGraph(GraphState)
 
                 # Register all nodes first
+                graph_builder.add_node("secret_guardrail", secret_guardrail_node)
                 graph_builder.add_node("inbound_intent", inbound_intent_node)
                 graph_builder.add_node("document_pipeline", document_pipeline_node)
                 graph_builder.add_node("agent", _agent)
-                graph_builder.add_node("collect_draft", collect_draft_node)
                 graph_builder.add_node("outbound", outbound_node)
-                graph_builder.add_node(
-                    "reask",
-                    lambda state: reask_node(cast(GraphState, state), _chat_model),
-                )
                 graph_builder.add_node("store_messages", store_messages_node)
                 graph_builder.add_node("summarization", summarization_node)
                 # Then edges
-                graph_builder.set_entry_point("inbound_intent")
-                graph_builder.add_conditional_edges(
-                    "inbound_intent",
-                    lambda state: "document_pipeline" if state.is_safe_intent else "store_messages",
-                )
+                graph_builder.set_entry_point("secret_guardrail")
+                graph_builder.add_edge("secret_guardrail", "inbound_intent")
                 graph_builder.add_edge("document_pipeline", "agent")
-                graph_builder.add_edge("agent", "collect_draft")
-                graph_builder.add_edge("collect_draft", "outbound")
-                graph_builder.add_conditional_edges(
-                    "outbound",
-                    lambda state: "reask" if not state.is_safe_output else "store_messages",
-                )
-                graph_builder.add_edge("reask", "store_messages")
+                graph_builder.add_edge("agent", "outbound")
                 graph_builder.add_edge("store_messages", "summarization")
                 graph_builder.add_edge("summarization", END)
 
@@ -257,6 +251,7 @@ class ReActAgent:
             "skill_profile": skill_profile,
             "last_message_index": len(existing_messages),
             "pending_files": pending_files or [],
+            "outbound_attempts": 0,
         }
         return graph, config, graph_input
 
@@ -289,7 +284,9 @@ class ReActAgent:
 
             response = await graph.ainvoke(graph_input, config=config)
 
-            final_response = response.get("final_response", "")
+            final_response = response.get("final_response", "") or _last_ai_message_content(
+                response.get("messages", [])
+            )
             return [Message(role="assistant", content=final_response)] if final_response else []
         except Exception as e:
             logger.exception("get_response_failed", error=str(e), session_id=session_id)
@@ -324,7 +321,9 @@ class ReActAgent:
 
             await graph.ainvoke(graph_input, config=config)
             state = await graph.aget_state(config)
-            final_response = state.values.get("final_response", "")
+            final_response = state.values.get("final_response", "") or _last_ai_message_content(
+                state.values.get("messages", [])
+            )
             for word in final_response.split(" "):
                 yield word + " "
                 await asyncio.sleep(0.02)

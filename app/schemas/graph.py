@@ -41,3 +41,7 @@ class GraphState(BaseModel):
     inbound_trigger_reason: str | None = Field(default=None)
     outbound_trigger_reason: str | None = Field(default=None)
     constructive_redirect: str | None = Field(default=None)
+    outbound_attempts: int = Field(
+        default=0,
+        description="Agent drafts produced for the current turn; bounds the outbound regenerate loop",
+    )
