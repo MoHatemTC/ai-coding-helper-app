@@ -44,6 +44,8 @@ class GraphState(TypedDict, total=False):
     # Parallel review lanes -- appended to, never overwritten, so
     # correctness/security/performance can run concurrently.
     findings: Annotated[list[dict[str, Any]], operator.add]
+    review_findings: list[dict[str, Any]]
+    review_complete: bool
 
     # Hint escalation
     hint_state: dict[str, Any] | None
