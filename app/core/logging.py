@@ -29,8 +29,11 @@ from app.core.config import (
     settings,
 )
 
-# Ensure log directory exists
-settings.LOG_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure log directory exists — never crash at import if the filesystem is read-only
+try:
+    settings.LOG_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 # Context variables for storing request-specific data
 _request_context: ContextVar[Optional[Dict[str, Any]]] = ContextVar("request_context", default=None)
@@ -201,13 +204,22 @@ def setup_logging() -> None:
     # Determine log level based on DEBUG setting
     log_level = logging.DEBUG if settings.DEBUG else logging.INFO
 
-    # Create file handler for JSON logs
-    file_handler = JsonlFileHandler(get_log_file_path())
-    file_handler.setLevel(log_level)
-
     # Create console handler
-    console_handler = logging.StreamHandler(sys.stdout)
+    # stderr keeps stdout clean for stdio-based MCP servers and process pipes.
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(log_level)
+
+    handlers: List[logging.Handler] = [console_handler]
+
+    # Create file handler for JSON logs. If it fails (read-only FS, permission
+    # denied), fall back to console-only rather than crashing the process.
+    file_handler_failed = False
+    try:
+        file_handler = JsonlFileHandler(get_log_file_path())
+        file_handler.setLevel(log_level)
+        handlers.append(file_handler)
+    except OSError:
+        file_handler_failed = True
 
     # Get shared processors
     shared_processors = get_structlog_processors(
@@ -219,8 +231,11 @@ def setup_logging() -> None:
     logging.basicConfig(
         format="%(message)s",
         level=log_level,
-        handlers=[file_handler, console_handler],
+        handlers=handlers,
     )
+
+    if file_handler_failed:
+        logging.getLogger("app.core.logging").warning("jsonl_file_handler_failed_falling_back_to_console")
 
     # Configure structlog based on environment
     if settings.LOG_FORMAT == "console":

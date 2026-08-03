@@ -22,7 +22,10 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
-from app.core.langgraph.ReAct_agent_graph import ReActAgent
+from app.core.langgraph.ReAct_agent_graph import (
+    AgentDatabaseUnavailableError,
+    ReActAgent,
+)
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import llm_stream_duration_seconds
@@ -122,6 +125,12 @@ async def chat(
         logger.info("chat_request_processed", session_id=session.id)
 
         return ChatResponse(messages=result)
+    except AgentDatabaseUnavailableError as e:
+        logger.warning("chat_db_unavailable", session_id=session.id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is unavailable. Please ensure PostgreSQL is running and try again.",
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -177,6 +186,14 @@ async def chat_stream(
 
                 final_response = StreamResponse(content="", done=True)
                 yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
+
+            except AgentDatabaseUnavailableError as e:
+                logger.warning("stream_chat_db_unavailable", session_id=session.id, error=str(e))
+                error_response = StreamResponse(
+                    content="Database service is unavailable. Please ensure PostgreSQL is running and try again.",
+                    done=True,
+                )
+                yield f"data: {json.dumps(error_response.model_dump(mode='json'))}\n\n"
 
             except Exception as e:
                 logger.exception(

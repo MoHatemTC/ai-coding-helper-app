@@ -66,6 +66,33 @@ services:
     networks:
       - monitoring
 
+  # MCP server exposing the agent + code/web search tools over SSE
+  mcp:
+    build:
+      context: .
+      args:
+        APP_ENV: ${APP_ENV:-development}
+    command: ["uv", "run", "python", "-m", "app.mcp.chunk_code_server", "--transport", "sse"]
+    ports:
+      - "8100:8100"
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    env_file:
+      - .env.${APP_ENV:-development}
+    environment:
+      - APP_ENV=${APP_ENV:-development}
+      - MCP_SERVER_TRANSPORT=sse
+      - MCP_SERVER_PORT=8100
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    networks:
+      - monitoring
+
   # Prometheus
   prometheus:
     image: prom/prometheus:latest

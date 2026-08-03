@@ -16,6 +16,7 @@ from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import (
     AIMessage,
+    AIMessageChunk,
     SystemMessage,
 )
 from langchain_core.runnables.config import RunnableConfig
@@ -28,6 +29,8 @@ from langgraph.graph import (
 from langgraph.graph.state import CompiledStateGraph
 from psycopg import (
     AsyncConnection,
+    InterfaceError,
+    OperationalError,
     sql,
 )
 from psycopg.rows import (
@@ -64,6 +67,15 @@ from app.services.memory import memory_service
 from app.services.skill_profile import skill_profile_service
 
 PostgresConnPool = AsyncConnectionPool[AsyncConnection[DictRow]]
+
+
+class AgentDatabaseUnavailableError(RuntimeError):
+    """Raised when the agent's PostgreSQL backend (pool/checkpointer) is unreachable.
+
+    Callers (e.g. the MCP server) use this to return a user-friendly error and
+    to decide whether to retry graph/pool initialization once the DB recovers.
+    """
+
 
 _chat_model = ChatOpenAI(
     model=settings.DEFAULT_LLM_MODEL,
@@ -104,37 +116,54 @@ class ReActAgent:
         )
 
     async def _get_connection_pool(self) -> Optional[PostgresConnPool]:
-        """Get a PostgreSQL connection pool using environment-specific settings."""
-        if self._connection_pool is None:
-            try:
-                max_size = settings.POSTGRES_POOL_SIZE
+        """Get a PostgreSQL connection pool using environment-specific settings.
 
-                connection_url = (
-                    "postgresql://"
-                    f"{quote_plus(settings.POSTGRES_USER)}:{quote_plus(settings.POSTGRES_PASSWORD)}"
-                    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-                )
+        A pool left in a closed/broken state by a previous failed attempt is
+        dropped so it gets rebuilt on the next call, making the agent
+        self-healing after a PostgreSQL outage.
+        """
+        if self._connection_pool is not None:
+            if not self._connection_pool.closed:
+                return self._connection_pool
+            self._connection_pool = None
 
-                self._connection_pool = AsyncConnectionPool(
-                    connection_url,
-                    open=False,
-                    max_size=max_size,
-                    kwargs={
-                        "autocommit": True,
-                        "connect_timeout": 5,
-                        "prepare_threshold": None,
-                        "row_factory": dict_row,
-                    },
-                )
-                await self._connection_pool.open()
-                logger.info("connection_pool_created", max_size=max_size, environment=settings.ENVIRONMENT.value)
-            except Exception as e:
-                logger.error("connection_pool_creation_failed", error=str(e), environment=settings.ENVIRONMENT.value)
-                if settings.ENVIRONMENT == Environment.PRODUCTION:
-                    logger.warning("continuing_without_connection_pool", environment=settings.ENVIRONMENT.value)
-                    return None
-                raise e
-        return self._connection_pool
+        try:
+            max_size = settings.POSTGRES_POOL_SIZE
+
+            connection_url = (
+                "postgresql://"
+                f"{quote_plus(settings.POSTGRES_USER)}:{quote_plus(settings.POSTGRES_PASSWORD)}"
+                f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+            )
+
+            self._connection_pool = AsyncConnectionPool(
+                connection_url,
+                open=False,
+                max_size=max_size,
+                timeout=settings.POSTGRES_CONNECT_TIMEOUT,
+                kwargs={
+                    "autocommit": True,
+                    "connect_timeout": settings.POSTGRES_CONNECT_TIMEOUT,
+                    "prepare_threshold": None,
+                    "row_factory": dict_row,
+                },
+            )
+            await self._connection_pool.open(timeout=settings.POSTGRES_CONNECT_TIMEOUT)
+            logger.info("connection_pool_created", max_size=max_size, environment=settings.ENVIRONMENT.value)
+            return self._connection_pool
+        except Exception as e:
+            logger.exception("connection_pool_creation_failed", error=str(e), environment=settings.ENVIRONMENT.value)
+            # Drop the broken pool so the next attempt builds a fresh one.
+            if self._connection_pool is not None:
+                try:
+                    await self._connection_pool.close()
+                except Exception:
+                    logger.warning("connection_pool_cleanup_failed")
+                self._connection_pool = None
+            if settings.ENVIRONMENT == Environment.PRODUCTION:
+                logger.warning("continuing_without_connection_pool", environment=settings.ENVIRONMENT.value)
+                return None
+            raise AgentDatabaseUnavailableError(f"could not connect to postgres: {e}") from e
 
     async def create_graph(self) -> Optional[CompiledStateGraph]:
         """Create and configure the ReAct agent workflow."""
@@ -165,7 +194,7 @@ class ReActAgent:
                 else:
                     checkpointer = None
                     if settings.ENVIRONMENT != Environment.PRODUCTION:
-                        raise Exception("Connection pool initialization failed")
+                        raise AgentDatabaseUnavailableError("connection pool initialization failed")
 
                 self._graph = graph_builder.compile(
                     checkpointer=checkpointer, name=f"{settings.PROJECT_NAME} Agent ({settings.ENVIRONMENT.value})"
@@ -177,12 +206,16 @@ class ReActAgent:
                     environment=settings.ENVIRONMENT.value,
                     has_checkpointer=checkpointer is not None,
                 )
+            except AgentDatabaseUnavailableError:
+                self._graph = None
+                raise
             except Exception as e:
+                self._graph = None
                 logger.error("graph_creation_failed", error=str(e), environment=settings.ENVIRONMENT.value)
                 if settings.ENVIRONMENT == Environment.PRODUCTION:
                     logger.warning("continuing_without_graph")
                     return None
-                raise e
+                raise
 
         return self._graph
 
@@ -191,8 +224,23 @@ class ReActAgent:
         if self._graph is None:
             self._graph = await self.create_graph()
         if self._graph is None:
-            raise RuntimeError("graph initialization failed")
+            raise AgentDatabaseUnavailableError("graph initialization failed: database unavailable")
         return self._graph
+
+    async def reset_graph(self) -> None:
+        """Drop the graph and connection pool so the next call rebuilds them.
+
+        Call this after a PostgreSQL outage so that when the DB comes back the
+        pool, checkpointer, and compiled graph are re-created on the next turn.
+        """
+        self._graph = None
+        if self._connection_pool is not None:
+            try:
+                await self._connection_pool.close()
+            except Exception:
+                logger.warning("connection_pool_close_during_reset_failed")
+            self._connection_pool = None
+        logger.info("agent_graph_reset")
 
     async def _prepare_turn(
         self,
@@ -288,6 +336,12 @@ class ReActAgent:
                 response.get("messages", [])
             )
             return [Message(role="assistant", content=final_response)] if final_response else []
+        except (OperationalError, InterfaceError) as e:
+            logger.warning("get_response_db_error", error=str(e), session_id=session_id)
+            await self.reset_graph()
+            raise AgentDatabaseUnavailableError(f"database unavailable during agent run: {e}") from e
+        except AgentDatabaseUnavailableError:
+            raise
         except Exception as e:
             logger.exception("get_response_failed", error=str(e), session_id=session_id)
             raise
@@ -300,7 +354,14 @@ class ReActAgent:
         username: Optional[str] = None,
         pending_files: Optional[list] = None,
     ) -> AsyncGenerator[str, None]:
-        """Get a stream response from the LLM.
+        """Get a token stream from the LLM.
+
+        Uses LangGraph ``astream(stream_mode="messages")`` so tokens are
+        yielded as the model generates them, instead of buffering the full
+        response and replaying it (which delayed the first token).
+
+        Only the agent's model output is streamed — internal guardrail /
+        intent / outbound LLM calls are filtered out via the node name.
 
         Args:
             message (Message): The user message for this turn.
@@ -312,21 +373,28 @@ class ReActAgent:
             pending_files (Optional[list]): FileAttachments uploaded but not yet processed.
 
         Yields:
-            str: Tokens of the LLM response.
+            str: Content tokens of the agent's response, as they are produced.
         """
         try:
             graph, config, graph_input = await self._prepare_turn(
                 message, session_id, user_id, username, pending_files
             )
 
-            await graph.ainvoke(graph_input, config=config)
-            state = await graph.aget_state(config)
-            final_response = state.values.get("final_response", "") or _last_ai_message_content(
-                state.values.get("messages", [])
-            )
-            for word in final_response.split(" "):
-                yield word + " "
-                await asyncio.sleep(0.02)
+            async for event in graph.astream(graph_input, config=config, stream_mode="messages", subgraphs=True):
+                if not isinstance(event, tuple) or len(event) != 2:
+                    continue
+                message_chunk, metadata = event
+                if not isinstance(message_chunk, AIMessageChunk):
+                    continue
+                if metadata.get("langgraph_node") != "model":
+                    continue
+                content = message_chunk.content
+                if isinstance(content, str) and content:
+                    yield content
+        except (OperationalError, InterfaceError) as e:
+            logger.warning("get_stream_response_db_error", error=str(e), session_id=session_id)
+            await self.reset_graph()
+            raise AgentDatabaseUnavailableError(f"database unavailable during agent stream: {e}") from e
         except Exception as e:
             logger.exception("stream_processing_failed", error=str(e), session_id=session_id)
             raise
