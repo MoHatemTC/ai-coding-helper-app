@@ -67,7 +67,7 @@ from app.services.skill_profile import skill_profile_service
 PostgresConnPool = AsyncConnectionPool[AsyncConnection[DictRow]]
 
 _chat_model = ChatOpenAI(
-    model="gemini/gemini-3.6-flash",
+    model=settings.DEFAULT_LLM_MODEL,
     base_url=settings.LITELLM_BASE_URL,
     api_key=SecretStr(settings.LITELLM_API_KEY),
     temperature=settings.DEFAULT_LLM_TEMPERATURE,

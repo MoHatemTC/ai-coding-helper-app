@@ -148,8 +148,8 @@ class Settings:
         # LangGraph Configuration
         self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
         self.LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm")
-        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "fw-kimi-k2.6")
-        self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "fw-kimi-k2.6")
+        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "gemini/gemini-3.6-flash")
+        self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "gemini/gemini-3.6-flash")
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))

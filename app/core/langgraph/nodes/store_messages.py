@@ -1,5 +1,6 @@
 """Store the user turn and approved final response without persisting a draft."""
 
+import asyncio
 from typing import Any
 
 from langchain_core.messages import HumanMessage
@@ -21,7 +22,11 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
         return {}
 
     messages = state.messages
-    human_message = next((message for message in reversed(messages) if isinstance(message, HumanMessage)), None)
+    human_message = None
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            human_message = message
+            break
     final_response = state.final_response
     user_query_redacted = state.user_query_redacted
     file_dicts = [attachment.model_dump() for attachment in state.uploaded_files] or None
@@ -36,7 +41,9 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
         sql_messages.append({"role": "assistant", "content": final_response})
 
     if sql_messages:
-        await message_service.store_messages(user_id=int(user_id), session_id=session_id, messages=sql_messages)
+        asyncio.create_task(
+            message_service.store_messages(user_id=int(user_id), session_id=session_id, messages=sql_messages)
+        )
 
     # Redacted human input remains available in the checkpoint but is never
     # promoted to semantic long-term memory. The approved assistant answer is.
@@ -46,11 +53,10 @@ async def store_messages_node(state: GraphState, config: RunnableConfig) -> dict
     if isinstance(final_response, str) and final_response:
         memory_messages.append({"role": "assistant", "content": final_response})
     if memory_messages:
-        await memory_service.add(str(user_id), memory_messages, metadata)
-
+        asyncio.create_task(memory_service.add(str(user_id), memory_messages, metadata))
     conversation_text = "\n".join(f"{message['role']}: {message['content']}" for message in memory_messages)
     if conversation_text:
-        skill_profile_service.schedule_update(int(user_id), conversation_text)
+        asyncio.create_task(skill_profile_service.update(int(user_id), conversation_text))
 
     logger.info(
         "approved_messages_stored",
