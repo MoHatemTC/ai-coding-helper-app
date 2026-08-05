@@ -69,6 +69,7 @@ class MCPConfig:
     embedding_model_name: str
     top_k_retrieval: int
     mcp_user_id: str | None
+    guardrails_enabled: bool
 
 
 config = MCPConfig(
@@ -84,4 +85,5 @@ config = MCPConfig(
     embedding_model_name=_str("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
     top_k_retrieval=_int("TOP_K_RETRIEVAL", 5),
     mcp_user_id=_str("MCP_USER_ID", "") or None,
+    guardrails_enabled=_str("MCP_GUARDRAILS_ENABLED", "true").lower() in ("1", "true", "yes", "on"),
 )

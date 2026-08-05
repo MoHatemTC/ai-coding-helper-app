@@ -99,10 +99,8 @@ This is the most important principle. A guardrail that fails open (allowing the 
 | `memory_search` | 60 calls | per minute |
 | `memory_add` | 30 calls | per minute |
 | `review_code` | 30 calls | per minute |
-| `ask_human` | 10 calls | per minute |
 
 ### 3.4 Disallowed Action Chains
-- Prevent calling `ask_human` in a loop without user consent
 - Prevent storing raw credentials into memory via `memory_add`
 - Prevent searching memory with injection payloads
 

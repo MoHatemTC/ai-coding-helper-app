@@ -9,16 +9,16 @@ from app.core.config import settings
 _PROMPTS_DIR = os.path.dirname(__file__)
 
 # Read templates once at module load — no file I/O per request
-with open(os.path.join(_PROMPTS_DIR, "system.md"), "r") as _f:
+with open(os.path.join(_PROMPTS_DIR, "system.md"), "r", encoding="utf-8") as _f:
     _SYSTEM_PROMPT_TEMPLATE = _f.read()
 
-with open(os.path.join(_PROMPTS_DIR, "session_title.md"), "r") as _f:
+with open(os.path.join(_PROMPTS_DIR, "session_title.md"), "r", encoding="utf-8") as _f:
     SESSION_TITLE_PROMPT = _f.read()
 
 # hints.md lives in the shared app/prompts directory (two levels up from
 # app/core/prompts) alongside the guardrail system prompts.
 _HINTS_PROMPT_PATH = os.path.abspath(os.path.join(_PROMPTS_DIR, os.pardir, os.pardir, "prompts", "hints.md"))
-with open(_HINTS_PROMPT_PATH, "r") as _f:
+with open(_HINTS_PROMPT_PATH, "r", encoding="utf-8") as _f:
     _HINT_SYSTEM_PROMPT_TEMPLATE = _f.read()
 
 CRITICAL_REVISION_NOTICE = (

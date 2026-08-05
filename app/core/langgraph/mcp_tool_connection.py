@@ -292,7 +292,7 @@ class MCPToolConnection:
         selected: list[BaseTool] = []
         for tool in all_tools:
             base_name = tool.name.removeprefix(f"{self._SERVER_NAME}_")
-            if base_name in allowed and base_name not in ("server_status", "ask_human"):
+            if base_name in allowed and base_name not in ("server_status",):
                 selected.append(_wrap_with_reconnect(tool, self))
         return selected
 

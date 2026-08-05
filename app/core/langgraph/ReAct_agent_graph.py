@@ -52,6 +52,7 @@ from app.core.langgraph.nodes.outbound import outbound_node
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
 from app.core.langgraph.mcp_tool_connection import MCPToolConnection
+from app.core.langgraph.tools.ask_human import ask_human
 from app.core.langgraph.tools.code_search import (
     search_code,
     set_session_id,
@@ -140,9 +141,9 @@ class ReActAgent:
         if self._agent is not None:
             return self._agent
         if settings.MCP_AGENT_TOOLS_ENABLED:
-            tools: list[BaseTool] = await self._connect_mcp_tools()
+            tools: list[BaseTool] = [*await self._connect_mcp_tools(), ask_human]
         else:
-            tools = [duckduckgo_search_tool, search_code]
+            tools = [duckduckgo_search_tool, search_code, ask_human]
         self._agent = create_agent(model=_chat_model, tools=tools, name="agent")
         return self._agent
 

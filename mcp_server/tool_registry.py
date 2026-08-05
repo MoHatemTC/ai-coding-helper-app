@@ -24,6 +24,7 @@ from typing import Any, cast
 from langchain_core.tools import BaseTool
 from mcp.server.fastmcp import FastMCP
 
+from mcp_server.config import config as mcp_config
 from mcp_server.guardrails import (
     FieldRule,
     GuardrailError,
@@ -52,7 +53,6 @@ GUARDRAIL_CONFIG: dict[str, GuardrailPolicy] = {
         field_rules={"query": FieldRule.QUERY, "user_id": FieldRule.USER_ID},
         check_pii=True,
     ),
-    "ask_human": GuardrailPolicy(field_rules={"question": FieldRule.QUERY}, check_pii=True),
 }
 
 
@@ -61,6 +61,7 @@ class ToolConfig:
     """Registration metadata for a tool."""
 
     guardrail_policy: GuardrailPolicy | None = None
+    guardrails_enabled: bool = True
 
 
 TOOL_CONFIGS: dict[str, ToolConfig] = {
@@ -70,9 +71,10 @@ TOOL_CONFIGS: dict[str, ToolConfig] = {
 
 def register_all_tools(mcp: FastMCP, tools: list[BaseTool]) -> None:
     """Register every LangChain tool onto the FastMCP server with guardrails."""
+    enabled = mcp_config.guardrails_enabled
     for tool in tools:
         config = TOOL_CONFIGS.get(tool.name, ToolConfig())
-        _register_tool(mcp, tool, config)
+        _register_tool(mcp, tool, config, guardrails_enabled=enabled)
 
 
 # ---------------------------------------------------------------------------
@@ -125,12 +127,19 @@ def _run_sync(tool: BaseTool, kwargs: dict[str, Any]) -> Any:
     return tool.invoke(kwargs)
 
 
-async def _execute(tool: BaseTool, policy: GuardrailPolicy | None, kwargs: dict[str, Any]) -> str:
-    """Apply guardrails, run the tool, and sanitize its output."""
-    try:
-        apply_input_guardrails(tool.name, kwargs, policy=policy)
-    except GuardrailError as e:
-        return json.dumps({"error": str(e), "reason": e.reason, "field": e.field})
+async def _execute(
+    tool: BaseTool,
+    policy: GuardrailPolicy | None,
+    kwargs: dict[str, Any],
+    *,
+    guardrails_enabled: bool = True,
+) -> str:
+    """Apply guardrails (when enabled), run the tool, and sanitize its output."""
+    if guardrails_enabled:
+        try:
+            apply_input_guardrails(tool.name, kwargs, policy=policy)
+        except GuardrailError as e:
+            return json.dumps({"error": str(e), "reason": e.reason, "field": e.field})
 
     try:
         if getattr(tool, "coroutine", None) is not None:
@@ -139,14 +148,16 @@ async def _execute(tool: BaseTool, policy: GuardrailPolicy | None, kwargs: dict[
             result = await asyncio.to_thread(_run_sync, tool, kwargs)
         if not isinstance(result, str):
             result = str(result)
-        return apply_output_guardrails(result, tool_name=tool.name)
+        if guardrails_enabled:
+            return apply_output_guardrails(result, tool_name=tool.name)
+        return result
     except GuardrailError as e:
         return json.dumps({"error": str(e), "reason": e.reason, "field": e.field})
     except Exception as e:
         return json.dumps({"error": f"{tool.name} failed: {e!s}"})
 
 
-def _register_tool(mcp: FastMCP, tool: BaseTool, config: ToolConfig) -> None:
+def _register_tool(mcp: FastMCP, tool: BaseTool, config: ToolConfig, guardrails_enabled: bool) -> None:
     """Register a single tool with a dynamically-derived schema."""
     schema = cast(Any, tool.get_input_schema())
     schema = schema.model_json_schema() if isinstance(schema, type) else schema
@@ -154,7 +165,12 @@ def _register_tool(mcp: FastMCP, tool: BaseTool, config: ToolConfig) -> None:
 
     async def _run(**kwargs: Any) -> str:
         """Guardrail-wrapped, dynamically-signed tool handler."""
-        return await _execute(tool, config.guardrail_policy, kwargs)
+        return await _execute(
+            tool,
+            config.guardrail_policy,
+            kwargs,
+            guardrails_enabled=config.guardrails_enabled and guardrails_enabled,
+        )
 
     _run.__name__ = f"{tool.name}_wrapper"
     _run.__qualname__ = f"tools.{tool.name}"

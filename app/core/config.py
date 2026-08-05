@@ -227,10 +227,6 @@ class Settings:
         self.TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
         self.EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
         self.EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))
-        self.MCP_SERVER_TRANSPORT = os.getenv("MCP_SERVER_TRANSPORT", "stdio")
-        self.MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
-        self.MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "8100"))
-        self.MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "")
         # Use the standalone mcp_server's tools (web_search, search_code,
         # memory_search) inside the ReAct agent, with user/session scope forced
         # by the backend rather than chosen by the model.
@@ -241,10 +237,6 @@ class Settings:
             "yes",
         )
         self.MCP_AGENT_TOOLS = parse_list_from_env("MCP_AGENT_TOOLS", ["web_search", "search_code", "memory_search"])
-        # Auto-retry when PostgreSQL is unreachable: re-attempt graph/pool
-        # initialization so the MCP server self-heals once the DB comes back.
-        self.MCP_DB_RETRY_MAX_ATTEMPTS = int(os.getenv("MCP_DB_RETRY_MAX_ATTEMPTS", "3"))
-        self.MCP_DB_RETRY_BACKOFF_SECONDS = float(os.getenv("MCP_DB_RETRY_BACKOFF_SECONDS", "2.0"))
         self.POSTGRES_CONNECT_TIMEOUT = int(os.getenv("POSTGRES_CONNECT_TIMEOUT", "5"))
 
         # JWT Configuration

@@ -22,7 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
-from app.core.langgraph.graph import LangGraphAgent
+from app.core.langgraph.ReAct_agent_graph import ReActAgent
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import llm_stream_duration_seconds
@@ -39,7 +39,7 @@ from app.services.session_naming import maybe_name_session
 
 
 router = APIRouter()
-agent = LangGraphAgent()
+agent = ReActAgent()
 
 
 async def _process_files(

@@ -256,7 +256,6 @@ RATE_LIMITS: dict[str, tuple[int, float]] = {
     "web_search": (30, 60.0),
     "search_code": (60, 60.0),
     "memory_search": (60, 60.0),
-    "ask_human": (10, 60.0),
 }
 
 # In-memory rate limit tracker: tool_name -> list of timestamps.

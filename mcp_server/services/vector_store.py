@@ -1,8 +1,8 @@
 """Standalone pgvector vector store for the MCP server (no app imports).
 
-Ports the semantic code-chunk search from ``app.services.vector_store`` /
-``app.mcp.chunk_code_server`` using its own engine and embedding model, plus
-an ownership pre-check against the ``session`` table.
+Ports the semantic code-chunk search from ``app.services.vector_store`` using
+its own engine and embedding model, plus an ownership pre-check against the
+``session`` table.
 """
 
 import os

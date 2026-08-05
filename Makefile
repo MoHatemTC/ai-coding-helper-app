@@ -48,16 +48,10 @@ _serve:
 	@$(call run_with_env,./.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop uvloop)
 
 # ---------------------------------------------------------------------------
-# MCP server
+# MCP server (standalone, stdio)
 # ---------------------------------------------------------------------------
 mcp:
-	@$(call run_with_env,uv run python -m app.mcp.chunk_code_server --transport stdio)
-
-mcp-sse:
-	@$(call run_with_env,uv run python -m app.mcp.chunk_code_server --transport sse)
-
-mcp-http:
-	@$(call run_with_env,uv run python -m app.mcp.chunk_code_server --transport streamable-http)
+	@$(call run_with_env,uv run python -m mcp_server.server)
 
 # ---------------------------------------------------------------------------
 # Database migrations

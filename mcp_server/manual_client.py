@@ -35,7 +35,6 @@ async def main():
     parser = argparse.ArgumentParser(description="Manual MCP client for testing tools")
     parser.add_argument("--tool", default="web_search", help="Tool name to call")
     parser.add_argument("--query", default="Python 3.14", help="Query (for web_search, memory_search, search_code)")
-    parser.add_argument("--question", default="Is this correct?", help="Question (for ask_human)")
     parser.add_argument("--user-id", default="1", help="User ID (for memory_search, search_code)")
     parser.add_argument("--session-id", default=None, help="Session ID (for search_code)")
     parser.add_argument("--file-name", default=None, help="Optional filename filter (for search_code)")
@@ -78,8 +77,6 @@ async def main():
             arguments: dict[str, Any] = {}
             if tool_name == "web_search":
                 arguments = {"query": args.query}
-            elif tool_name == "ask_human":
-                arguments = {"question": args.question}
             elif tool_name == "memory_search":
                 arguments = {"user_id": args.user_id, "query": args.query}
             elif tool_name == "search_code":
@@ -96,7 +93,7 @@ async def main():
                 arguments = {}
             else:
                 print(f"Unknown tool: {tool_name}")
-                print("Available tools: server_status, web_search, search_code, memory_search, ask_human")
+                print("Available tools: server_status, web_search, search_code, memory_search")
                 return
 
             print(f"Arguments: {json.dumps(arguments, indent=2)}")

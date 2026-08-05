@@ -1,6 +1,7 @@
 """Long-term memory service using mem0 and pgvector with optional cache layer."""
 
 import asyncio
+import os
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
@@ -35,6 +36,12 @@ class MemoryService:
 
     async def _get_memory(self) -> AsyncMemory:
         if self._memory is None:
+            # mem0's OpenAI client switches to OpenRouter whenever
+            # OPENROUTER_API_KEY is present, ignoring the configured
+            # LITELLM_BASE_URL. The app routes all LLM traffic through
+            # LiteLLM, so drop the key from the process env before the
+            # client is built (mem0 constructs the LLM eagerly here).
+            os.environ.pop("OPENROUTER_API_KEY", None)
             self._memory = await AsyncMemory.from_config(
                 config_dict={
                     "vector_store": {
