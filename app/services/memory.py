@@ -1,7 +1,6 @@
 """Long-term memory service using mem0 and pgvector with optional cache layer."""
 
 import asyncio
-import os
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
@@ -51,10 +50,11 @@ class MemoryService:
                         },
                     },
                     "llm": {
-                        "provider": "groq",
+                        "provider": "openai",
                         "config": {
-                            "model": "llama-3.3-70b-versatile",
-                            "api_key": os.getenv("GROQ_API_KEY"),
+                            "model": settings.DEFAULT_LLM_MODEL,
+                            "api_key": settings.LITELLM_API_KEY,
+                            "openai_base_url": settings.LITELLM_BASE_URL,
                             "max_tokens": 400,
                         },
                     },

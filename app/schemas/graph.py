@@ -33,6 +33,11 @@ class GraphState(BaseModel):
         description="File metadata for the current turn, consumed by store_messages",
     )
 
+    code_context: str = Field(
+        default="",
+        description="Retrieved code chunks from pgvector, injected into the hint prompt",
+    )
+
     # Guardrail fields
     is_safe_intent: bool = Field(default=True)
     is_safe_output: bool = Field(default=True)
