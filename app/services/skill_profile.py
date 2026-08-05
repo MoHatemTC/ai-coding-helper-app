@@ -15,9 +15,11 @@ ProfileDelta or raises, there's no ambiguous partial-parse state.
 
 import asyncio
 from datetime import datetime, timezone
+from typing import Any
 
 from langchain_core.messages import HumanMessage
 from sqlmodel import Session, select
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -87,6 +89,16 @@ def _filter_grounded(delta: ProfileDelta, conversation: str, existing_keys: set[
     if dropped:
         delta = delta.model_copy(update={"upsert": kept})
     return delta
+
+
+@retry(
+    stop=stop_after_attempt(2),
+    wait=wait_exponential(multiplier=1, min=2, max=5),
+    reraise=True,
+)
+async def _invoke_delta_llm(structured_llm: Any, messages: list) -> ProfileDelta:
+    """Invoke the structured skill-profile LLM with a single tenacity retry."""
+    return await structured_llm.ainvoke(messages)
 
 
 class SkillProfileService:
@@ -229,11 +241,14 @@ class SkillProfileService:
         existing_text = self._render_entries(entries) if entries else "No skill profile recorded yet."
         existing_keys = {e.skill_key for e in entries}
 
-        llm = LLMRegistry.get(settings.SKILL_PROFILE_MODEL, temperature=0.1, max_tokens=800)
+        llm = LLMRegistry.get(
+            settings.SKILL_PROFILE_MODEL, temperature=0.1, max_tokens=settings.SKILL_PROFILE_MAX_TOKENS
+        )
         structured_llm = llm.with_structured_output(ProfileDelta)
 
         try:
-            result = await structured_llm.ainvoke(
+            result = await _invoke_delta_llm(
+                structured_llm,
                 [
                     HumanMessage(
                         content=SKILL_PROFILE_DELTA_PROMPT.format(
@@ -241,7 +256,7 @@ class SkillProfileService:
                             conversation=conversation,
                         )
                     )
-                ]
+                ],
             )
             # with_structured_output should already return a ProfileDelta, but
             # guard in case the registry wraps it in a dict at some point.
@@ -253,10 +268,27 @@ class SkillProfileService:
 
     async def update(self, user_id: int, conversation: str) -> str:
         """Full pipeline: propose_delta (LLM) → curate (deterministic) → render."""
-        delta = await self.propose_delta(user_id, conversation)
-        if delta.upsert or delta.remove:
-            await asyncio.to_thread(self.curate, user_id, delta)
-        return await asyncio.to_thread(self.render_for_prompt, user_id)
+        logger.info(
+            "skill_profile_update_started",
+            user_id=user_id,
+            conversation_chars=len(conversation),
+        )
+        try:
+            delta = await self.propose_delta(user_id, conversation)
+            if delta.upsert or delta.remove:
+                await asyncio.to_thread(self.curate, user_id, delta)
+            rendered = await asyncio.to_thread(self.render_for_prompt, user_id)
+            logger.info(
+                "skill_profile_update_completed",
+                user_id=user_id,
+                upsert_count=len(delta.upsert),
+                remove_count=len(delta.remove),
+                entry_count=len(rendered.splitlines()),
+            )
+            return rendered
+        except Exception:
+            logger.exception("skill_profile_update_failed", user_id=user_id)
+            return ""
 
     # ── Silence monitor ────────────────────────────────────────────
 

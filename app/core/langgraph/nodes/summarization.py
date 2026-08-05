@@ -89,7 +89,7 @@ async def summarization_node(state: GraphState) -> Command:
                 *summary_input,
             ],
             temperature=0,
-            max_tokens=1000,
+            max_tokens=2048,
         )
 
         new_summary = summary_response.content if hasattr(summary_response, "content") else str(summary_response)

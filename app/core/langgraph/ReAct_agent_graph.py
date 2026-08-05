@@ -20,6 +20,7 @@ from langchain_core.messages import (
     SystemMessage,
 )
 from langchain_core.runnables.config import RunnableConfig
+from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import (
@@ -50,6 +51,7 @@ from app.core.langgraph.nodes.inbound_first_stage import secret_guardrail_node
 from app.core.langgraph.nodes.outbound import outbound_node
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
+from app.core.langgraph.mcp_tool_connection import MCPToolConnection
 from app.core.langgraph.tools.code_search import (
     search_code,
     set_session_id,
@@ -86,12 +88,6 @@ _chat_model = ChatOpenAI(
     timeout=settings.LLM_TOTAL_TIMEOUT,
 )
 
-_agent = create_agent(
-    model=_chat_model,
-    tools=[duckduckgo_search_tool, search_code],
-    name="agent",
-)
-
 
 def _last_ai_message_content(messages: list) -> str:
     """Return the content of the last non-empty AIMessage in the list, if any."""
@@ -109,11 +105,46 @@ class ReActAgent:
         self.model_name = settings.DEFAULT_LLM_MODEL
         self._connection_pool: Optional[PostgresConnPool] = None
         self._graph: Optional[CompiledStateGraph] = None
+        self._agent: Optional[CompiledStateGraph] = None
+        self.mcp_tools = MCPToolConnection()
         logger.info(
             "react_agent_initialized",
             model=self.model_name,
             environment=settings.ENVIRONMENT.value,
         )
+
+    async def _connect_mcp_tools(self) -> list[BaseTool]:
+        """Load the standalone MCP server's tools as LangChain tools.
+
+        Delegates to the shared persistent connection, which spawns the server
+        once as a stdio subprocess with the full parent environment but with
+        ``MCP_USER_ID`` forced empty, so the server runs unbound and
+        user/session scope is injected per-call by the scope-forcing
+        interceptor instead of the model choosing it.
+        """
+        return await self.mcp_tools.get_tools()
+
+    async def start_mcp(self) -> None:
+        """Pre-warm the shared MCP tool connection at app startup."""
+        if settings.MCP_AGENT_TOOLS_ENABLED:
+            await self.mcp_tools.start()
+            logger.info("mcp_tools_started")
+
+    async def stop_mcp(self) -> None:
+        """Tear down the shared MCP tool connection at app shutdown."""
+        if self.mcp_tools.is_running:
+            await self.mcp_tools.stop()
+
+    async def _create_agent(self) -> CompiledStateGraph:
+        """Build the ReAct sub-agent, using MCP server tools when enabled."""
+        if self._agent is not None:
+            return self._agent
+        if settings.MCP_AGENT_TOOLS_ENABLED:
+            tools: list[BaseTool] = await self._connect_mcp_tools()
+        else:
+            tools = [duckduckgo_search_tool, search_code]
+        self._agent = create_agent(model=_chat_model, tools=tools, name="agent")
+        return self._agent
 
     async def _get_connection_pool(self) -> Optional[PostgresConnPool]:
         """Get a PostgreSQL connection pool using environment-specific settings.
@@ -175,7 +206,8 @@ class ReActAgent:
                 graph_builder.add_node("secret_guardrail", secret_guardrail_node)
                 graph_builder.add_node("inbound_intent", inbound_intent_node)
                 graph_builder.add_node("document_pipeline", document_pipeline_node)
-                graph_builder.add_node("agent", _agent)
+                agent = await self._create_agent()
+                graph_builder.add_node("agent", agent)
                 graph_builder.add_node("outbound", outbound_node)
                 graph_builder.add_node("store_messages", store_messages_node)
                 graph_builder.add_node("summarization", summarization_node)
@@ -228,18 +260,21 @@ class ReActAgent:
         return self._graph
 
     async def reset_graph(self) -> None:
-        """Drop the graph and connection pool so the next call rebuilds them.
+        """Drop the graph, pool, and MCP session so the next call rebuilds them.
 
         Call this after a PostgreSQL outage so that when the DB comes back the
-        pool, checkpointer, and compiled graph are re-created on the next turn.
+        pool, checkpointer, compiled graph, and MCP tool session are re-created
+        on the next turn.
         """
         self._graph = None
+        self._agent = None
         if self._connection_pool is not None:
             try:
                 await self._connection_pool.close()
             except Exception:
                 logger.warning("connection_pool_close_during_reset_failed")
             self._connection_pool = None
+        await self.mcp_tools.restart()
         logger.info("agent_graph_reset")
 
     async def _prepare_turn(

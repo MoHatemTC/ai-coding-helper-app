@@ -63,6 +63,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("cache_initialization_failed", error=str(e))
 
+    # Pre-warm the shared MCP tool connection (spawns the standalone MCP
+    # subprocess once) before the graph is built so tool calls don't pay a
+    # cold subprocess start on the first request.
+    try:
+        await agent.start_mcp()
+    except Exception as e:
+        logger.exception("mcp_tools_pre_warm_failed", error=str(e))
+
     # Pre-warm the LangGraph agent: create graph + connection pool at startup
     # to avoid cold-start latency on the first request
     try:
@@ -88,6 +96,7 @@ async def lifespan(app: FastAPI):
     checkpoint_cleanup_task.cancel()
     await skill_profile_service.shutdown()
     await cache_service.close()
+    await agent.stop_mcp()
     if agent._connection_pool:
         await agent._connection_pool.close()
         logger.info("connection_pool_closed")

@@ -167,6 +167,7 @@ class Settings:
         # Skill Profile Configuration
         self.SKILL_PROFILE_SILENCE_SECONDS = int(os.getenv("SKILL_PROFILE_SILENCE_SECONDS", "1800"))
         self.SKILL_PROFILE_MODEL = os.getenv("SKILL_PROFILE_MODEL", self.DEFAULT_LLM_MODEL)
+        self.SKILL_PROFILE_MAX_TOKENS = int(os.getenv("SKILL_PROFILE_MAX_TOKENS", "2048"))
 
         # Document Pipeline Configuration
         self.UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
@@ -230,6 +231,16 @@ class Settings:
         self.MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
         self.MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "8100"))
         self.MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "")
+        # Use the standalone mcp_server's tools (web_search, search_code,
+        # memory_search) inside the ReAct agent, with user/session scope forced
+        # by the backend rather than chosen by the model.
+        self.MCP_AGENT_TOOLS_ENABLED = os.getenv("MCP_AGENT_TOOLS_ENABLED", "false").lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
+        self.MCP_AGENT_TOOLS = parse_list_from_env("MCP_AGENT_TOOLS", ["web_search", "search_code", "memory_search"])
         # Auto-retry when PostgreSQL is unreachable: re-attempt graph/pool
         # initialization so the MCP server self-heals once the DB comes back.
         self.MCP_DB_RETRY_MAX_ATTEMPTS = int(os.getenv("MCP_DB_RETRY_MAX_ATTEMPTS", "3"))

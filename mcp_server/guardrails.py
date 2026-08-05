@@ -33,8 +33,10 @@ import json
 import re
 import time
 from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from enum import Enum
+from typing import Any, Mapping
 
 # =========================================================================
 # 1. INJECTION PREVENTION
@@ -153,6 +155,50 @@ DISALLOWED_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (PROMPT_INJECTION, "prompt_injection"),
 ]
 
+# Patterns applied to free-text queries/questions. Shell metacharacters and
+# code/sql/path patterns are legitimate in queries (e.g. "how does `&` work",
+# "DROP TABLE in postgres"), so only prompt injection is blocked.
+QUERY_DISALLOWED_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (PROMPT_INJECTION, "prompt_injection"),
+]
+
+# =========================================================================
+# 1b. PER-FIELD RULES & GUARDRAIL POLICIES
+# =========================================================================
+
+
+class FieldRule(str, Enum):
+    """How a single tool argument should be validated.
+
+    Attributes:
+        GENERAL: Size limit + full injection scan.
+        QUERY: Size limit + prompt-injection only (free text).
+        USER_ID: Non-empty, size-limited, full injection scan.
+        CODE: Size-limited, path-traversal only.
+        NONE: No checks.
+    """
+
+    GENERAL = "general"
+    QUERY = "query"
+    USER_ID = "user_id"
+    CODE = "code"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class GuardrailPolicy:
+    """Per-tool guardrail configuration.
+
+    Attributes:
+        field_rules: Mapping of argument name to the rule applied to it.
+            Arguments not present fall back to the field-name default.
+        check_pii: Whether to scan input arguments for PII and block if found.
+    """
+
+    field_rules: Mapping[str, FieldRule] = field(default_factory=dict)
+    check_pii: bool = True
+
+
 # =========================================================================
 # 2. PII / SECRET DETECTION
 # =========================================================================
@@ -204,12 +250,12 @@ MAX_FINDINGS = 100  # Max findings per review
 # 4. RATE LIMITING
 # =========================================================================
 
-# Rate limits per tool: (max_calls, window_seconds)
+# Rate limits per tool: (max_calls, window_seconds).
+# `server_status` is intentionally absent (dependency-free connectivity probe).
 RATE_LIMITS: dict[str, tuple[int, float]] = {
     "web_search": (30, 60.0),
+    "search_code": (60, 60.0),
     "memory_search": (60, 60.0),
-    "memory_add": (30, 60.0),
-    "review_code": (30, 60.0),
     "ask_human": (10, 60.0),
 }
 
@@ -476,7 +522,12 @@ def check_user_id(user_id: str) -> None:
 
 
 def check_query(query: str) -> None:
-    """Validate a search query.
+    """Validate a free-text search query or question.
+
+    Queries are checked for size limits and prompt injection only. Shell
+    metacharacters and code/sql/path patterns are allowed because they are
+    legitimate in free-text search (e.g. "how do I escape `$`", "DROP TABLE
+    in postgres").
 
     Args:
         query: The query to validate.
@@ -491,7 +542,15 @@ def check_query(query: str) -> None:
             field="query",
         )
     check_size_limit(query, MAX_QUERY_LENGTH, field_name="query")
-    check_injection_safety(query, field_name="query")
+
+    for pattern, category in QUERY_DISALLOWED_PATTERNS:
+        match = pattern.search(query)
+        if match:
+            raise GuardrailError(
+                f"query contains {category.replace('_', ' ')}: '{match.group()[:50]}'",
+                reason=category,
+                field="query",
+            )
 
 
 def check_code_safety(code: str) -> None:
@@ -645,17 +704,46 @@ def redact_sensitive_params(params: dict[str, Any]) -> dict[str, str]:
 # =========================================================================
 
 
+def _default_field_rule(field_name: str) -> FieldRule:
+    """Map a field name to its rule when no explicit policy is given."""
+    if field_name == "code":
+        return FieldRule.CODE
+    if field_name in ("query", "question"):
+        return FieldRule.QUERY
+    if field_name == "user_id":
+        return FieldRule.USER_ID
+    if field_name == "metadata":
+        return FieldRule.NONE
+    return FieldRule.GENERAL
+
+
+def _check_field(value: str, field_name: str, rule: FieldRule) -> None:
+    """Validate a single field against its rule."""
+    if rule == FieldRule.QUERY:
+        check_query(value)
+    elif rule == FieldRule.USER_ID:
+        check_user_id(value)
+    elif rule == FieldRule.CODE:
+        check_code_safety(value)
+    elif rule == FieldRule.NONE:
+        return
+    else:
+        check_size_limit(value, MAX_INPUT_LENGTH, field_name=field_name)
+        check_injection_safety(value, field_name=field_name)
+
+
 def apply_input_guardrails(
     tool_name: str,
     params: dict[str, Any],
     *,
     check_pii_flag: bool = False,
+    policy: GuardrailPolicy | None = None,
 ) -> dict[str, Any]:
     """Apply all input guardrails for a tool call.
 
     This is the main entry point for input validation. It runs:
     1. Rate limit check
-    2. Injection safety checks (per-field)
+    2. Injection safety checks (per-field, driven by the tool policy)
     3. Size limit checks (per-field)
     4. PII detection (optional, configurable per-tool)
     5. Audit logging
@@ -663,7 +751,10 @@ def apply_input_guardrails(
     Args:
         tool_name: The name of the tool being called.
         params: The tool parameters.
-        check_pii_flag: Whether to scan for PII and block if found.
+        check_pii_flag: Whether to scan for PII and block if found (used when
+            no policy is supplied).
+        policy: Optional per-tool GuardrailPolicy; its field rules and PII
+            flag take precedence over the default field dispatch.
 
     Returns:
         The validated parameters (metadata is parsed from JSON if present).
@@ -674,26 +765,20 @@ def apply_input_guardrails(
     # 1. Rate limit
     check_rate_limit(tool_name)
 
+    effective_rules = policy.field_rules if policy is not None else {}
+    do_pii_check = policy.check_pii if policy is not None else check_pii_flag
+
     # 2-3. Per-field checks
     for field_name, value in params.items():
         if not isinstance(value, str):
             continue
 
-        if field_name == "code":
-            check_code_safety(value)
-        elif field_name in ("query", "question"):
-            check_query(value)
-        elif field_name == "user_id":
-            check_user_id(value)
-        elif field_name == "metadata":
-            # metadata is validated and parsed separately
-            pass
-        else:
-            check_size_limit(value, MAX_INPUT_LENGTH, field_name=field_name)
-            check_injection_safety(value, field_name=field_name)
+        rule = effective_rules.get(field_name, _default_field_rule(field_name))
+        _check_field(value, field_name, rule)
 
-        # 4. PII detection (optional)
-        if check_pii_flag:
+        # 4. PII detection (optional). user_id is exempt: identifiers like
+        # long numeric ids can false-positive on the phone-number pattern.
+        if do_pii_check and field_name != "user_id":
             detections = check_pii(value, field_name=field_name)
             if detections:
                 types = ", ".join(d["type"] for d in detections)
