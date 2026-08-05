@@ -22,10 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
-from app.core.langgraph.ReAct_agent_graph import (
-    AgentDatabaseUnavailableError,
-    ReActAgent,
-)
+from app.core.langgraph.graph import LangGraphAgent
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import llm_stream_duration_seconds
@@ -42,7 +39,7 @@ from app.services.session_naming import maybe_name_session
 
 
 router = APIRouter()
-agent = ReActAgent()
+agent = LangGraphAgent()
 
 
 async def _process_files(
@@ -125,7 +122,7 @@ async def chat(
         logger.info("chat_request_processed", session_id=session.id)
 
         return ChatResponse(messages=result)
-    except AgentDatabaseUnavailableError as e:
+    except RuntimeError as e:
         logger.warning("chat_db_unavailable", session_id=session.id, error=str(e))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -173,7 +170,7 @@ async def chat_stream(
         async def event_generator():
             """Generate streaming events."""
             try:
-                with llm_stream_duration_seconds.labels(model=agent.model_name).time():
+                with llm_stream_duration_seconds.labels(model=settings.HINT_LLM_MODEL).time():
                     async for chunk in agent.get_stream_response(
                         user_message,
                         session.id,
@@ -187,7 +184,7 @@ async def chat_stream(
                 final_response = StreamResponse(content="", done=True)
                 yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
 
-            except AgentDatabaseUnavailableError as e:
+            except RuntimeError as e:
                 logger.warning("stream_chat_db_unavailable", session_id=session.id, error=str(e))
                 error_response = StreamResponse(
                     content="Database service is unavailable. Please ensure PostgreSQL is running and try again.",

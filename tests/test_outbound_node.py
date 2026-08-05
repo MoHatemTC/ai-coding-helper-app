@@ -1,114 +1,118 @@
 """Async offline tests for the outbound response guardrail."""
 
 import asyncio
-from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage
 
 from app.core.langgraph.nodes.outbound import SAFE_TIMEOUT_RESPONSE, outbound_node
+from app.schemas import GraphState
 from app.schemas.review import OutboundJudgeOutput, OutboundTriggerReason
 
 
-class MockSuccessJudgeClient:
-    """A structured LLM mock that allows the assistant response."""
-
-    def with_structured_output(self, _schema: type[OutboundJudgeOutput]) -> "MockSuccessJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> OutboundJudgeOutput:
-        """Return a safe output decision without a network call."""
-        return OutboundJudgeOutput(is_safe_output=True)
+def _state_with_draft(draft: str) -> GraphState:
+    """Build a GraphState carrying a human query and an assistant draft."""
+    return GraphState(
+        messages=[
+            HumanMessage(content="How should I approach this loop?"),
+            AIMessage(content=draft),
+        ]
+    )
 
 
-class MockBlockJudgeClient:
-    """A structured LLM mock that blocks a full solution leak."""
-
-    def with_structured_output(self, _schema: type[OutboundJudgeOutput]) -> "MockBlockJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> OutboundJudgeOutput:
-        """Return a full-solution-leak decision without a network call."""
-        return OutboundJudgeOutput(
-            is_safe_output=False,
-            outbound_trigger_reason=OutboundTriggerReason.FULL_SOLUTION_LEAK,
-            constructive_redirect="What helper function could you write first to handle one input at a time?",
-        )
-
-
-class MockFailingJudgeClient:
-    """A structured LLM mock that raises an evaluator error."""
-
-    def with_structured_output(self, _schema: type[OutboundJudgeOutput]) -> "MockFailingJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> OutboundJudgeOutput:
-        """Raise an error so the node exercises its fallback client."""
-        raise RuntimeError("outbound judge unavailable")
-
-
-class MockTimeoutJudgeClient:
-    """A structured LLM mock that hangs to trigger a timeout."""
-
-    def with_structured_output(self, _schema: type[OutboundJudgeOutput]) -> "MockTimeoutJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> OutboundJudgeOutput:
-        """Sleep longer than the timeout budget."""
-        await asyncio.sleep(5.0)
-        return OutboundJudgeOutput(is_safe_output=True)
+def _decision(
+    is_safe: bool = True,
+    reason: OutboundTriggerReason | None = None,
+    redirect: str | None = None,
+) -> OutboundJudgeOutput:
+    """Build a canned outbound judge decision."""
+    return OutboundJudgeOutput(
+        is_safe_output=is_safe,
+        outbound_trigger_reason=reason,
+        constructive_redirect=redirect,
+    )
 
 
 @pytest.mark.asyncio
 async def test_outbound_allows_conceptual_hint() -> None:
     """Allow conceptual guidance and deliver the original draft."""
-    draft_response = "Start by deciding which invariant your loop should preserve."
-    result = await outbound_node(
-        {"sanitized_query": "How should I approach this loop?", "draft_response": draft_response},
-        MockSuccessJudgeClient(),
-    )
+    draft = "Start by deciding which invariant your loop should preserve."
+    with patch(
+        "app.core.langgraph.nodes.outbound._invoke_outbound_judge",
+        new=AsyncMock(return_value=_decision(is_safe=True)),
+    ):
+        result = await outbound_node(_state_with_draft(draft))
 
-    assert result["is_safe_output"] is True
-    assert result["final_response"] == draft_response
+    assert result.update["is_safe_output"] is True
+    assert result.update["final_response"] == draft
+    assert result.goto == "store_messages"
 
 
 @pytest.mark.asyncio
 async def test_outbound_blocks_full_code_leak() -> None:
     """Block a complete solution and deliver the constructive redirect."""
-    result = await outbound_node(
-        {"sanitized_query": "Solve my assignment.", "draft_response": "def complete_solution(): pass"},
-        MockBlockJudgeClient(),
-    )
+    with patch(
+        "app.core.langgraph.nodes.outbound._invoke_outbound_judge",
+        new=AsyncMock(
+            return_value=_decision(
+                is_safe=False,
+                reason=OutboundTriggerReason.FULL_SOLUTION_LEAK,
+                redirect="What helper function could you write first to handle one input at a time?",
+            )
+        ),
+    ):
+        result = await outbound_node(_state_with_draft("def complete_solution(): pass"))
 
-    assert result["is_safe_output"] is False
-    assert result["outbound_trigger_reason"] == OutboundTriggerReason.FULL_SOLUTION_LEAK
-    assert result["final_response"] == result["constructive_redirect"]
+    assert result.update["is_safe_output"] is False
+    assert result.update["outbound_trigger_reason"] == OutboundTriggerReason.FULL_SOLUTION_LEAK
+    assert result.update["final_response"] == result.update["constructive_redirect"]
+
+
+@pytest.mark.asyncio
+async def test_outbound_regenerates_below_max_attempts() -> None:
+    """Route back to the agent while regeneration attempts remain."""
+    state = GraphState(
+        messages=[
+            HumanMessage(content="Solve my assignment."),
+            AIMessage(content="def complete_solution(): pass"),
+        ],
+        outbound_attempts=1,
+    )
+    with patch(
+        "app.core.langgraph.nodes.outbound._invoke_outbound_judge",
+        new=AsyncMock(return_value=_decision(is_safe=False, reason=OutboundTriggerReason.FULL_SOLUTION_LEAK)),
+    ):
+        result = await outbound_node(state)
+
+    assert result.update["outbound_attempts"] == 2
+    assert result.goto == "agent"
 
 
 @pytest.mark.asyncio
 async def test_outbound_fails_closed_on_client_failure() -> None:
     """Block the response when the outbound evaluator fails."""
-    result = await outbound_node(
-        {"draft_response": "Try tracing the values after each iteration."},
-        MockFailingJudgeClient(),
-    )
+    with patch(
+        "app.core.langgraph.nodes.outbound._invoke_outbound_judge",
+        new=AsyncMock(side_effect=RuntimeError("outbound judge unavailable")),
+    ):
+        result = await outbound_node(_state_with_draft("Try tracing the values after each iteration."))
 
-    assert result["is_safe_output"] is False
-    assert result["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
-    assert result["final_response"] == SAFE_TIMEOUT_RESPONSE
+    assert result.update["is_safe_output"] is False
+    assert result.update["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
+    assert result.update["final_response"] == SAFE_TIMEOUT_RESPONSE
+    assert result.goto == "store_messages"
 
 
 @pytest.mark.asyncio
 async def test_outbound_fails_closed_on_client_timeout() -> None:
     """Block the response when the outbound evaluator times out."""
-    result = await outbound_node(
-        {"draft_response": "Try tracing the values after each iteration."},
-        MockTimeoutJudgeClient(),
-    )
+    with patch(
+        "app.core.langgraph.nodes.outbound._invoke_outbound_judge",
+        new=AsyncMock(side_effect=asyncio.TimeoutError("outbound judge timed out")),
+    ):
+        result = await outbound_node(_state_with_draft("Try tracing the values after each iteration."))
 
-    assert result["is_safe_output"] is False
-    assert result["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
-    assert result["final_response"] == SAFE_TIMEOUT_RESPONSE
+    assert result.update["is_safe_output"] is False
+    assert result.update["outbound_trigger_reason"] == OutboundTriggerReason.EVALUATOR_ERROR
+    assert result.update["final_response"] == SAFE_TIMEOUT_RESPONSE
