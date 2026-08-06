@@ -1,0 +1,41 @@
+# PRD Self-Review — Week 4: Finalize the Frontend
+
+**Author:** Marwan Ashraf · **Sprint:** Week 4 (deadline Sat Aug 8, 2026, 12:59 AM Cairo) · **Scope:** Frontend polish, containerization, upload flow
+
+## Alignment against the assigned scope
+
+**Finalize the UI into a clean, interactive state with no placeholder or broken screens.** Done. Audited all three routes for placeholder/mock content — none found. Added `app/error.tsx` (root error boundary) and `app/not-found.tsx`, since neither existed before; without them, an uncaught exception would have shown Next's default error overlay (which exposes a stack trace) instead of a styled screen, and any bad/stale link would have hit an unstyled default 404. Also replaced the root page's blank flash (`return null` while redirecting) with a minimal loading state.
+
+**Wire all frontend flows to the live backend, removing mock data and fixtures.** No mock data or fixtures were present to remove — the app was already calling the real backend throughout (`lib/api.ts`). Confirmed via grep for `TODO|FIXME|mock|dummy|stub` across `app/` and `lib/` — no matches.
+
+**Implement user error handling so no raw technical errors or stack traces are displayed.** Done, with one important finding along the way: the backend's `/chat` and `/chat/stream` handlers currently do `raise HTTPException(status_code=500, detail=str(e))`, which puts raw internal exception text directly into the response body on server errors. Fixed on the frontend side — `lib/api.ts`'s `parseError()` now never trusts `detail` content on any 5xx response (only on 4xx, where the backend's messages are intentional and user-facing, like login/validation errors), and falls back to a short, generic, status-coded message instead. This is a frontend-side mitigation, not a full fix — the underlying `str(e)` leak in the backend's exception handler is still there and worth a follow-up fix on the backend side; flagging it here rather than making an unreviewed change to backend error-handling logic outside this sprint's stated scope.
+
+**Containerize the frontend so it launches alongside the backend cleanly.** `frontend/Dockerfile` already existed (multi-stage, `output: 'standalone'`) but was never wired into `docker-compose.yml` — added a `frontend` service. Two adjustments were necessary: Grafana was already bound to host port 3000, the same port Next.js needs, so Grafana was moved to `3001:3000` (still 3000 inside its own container, just republished). And `frontend`'s dependency on `app` was deliberately left as a plain `depends_on` rather than `condition: service_healthy`, because `app`'s healthcheck has an open history of timing out in this project (see carryover below) — chaining the frontend's startup to it would let a healthcheck problem in the backend block the frontend container from ever starting, which the frontend doesn't actually need since it already degrades gracefully when the backend isn't reachable.
+
+**Validate that the file upload flow functions end-to-end from the UI.** This surfaced the most significant gap: the live `frontend/app/chat/page.tsx` had no upload feature at all — only a plain paste-code textarea. (An earlier summary I gave described a fuller upload flow; that description came from a draft built in a scratch workspace, not the actual committed file — worth flagging since it means that earlier summary was inaccurate.) Built the real feature: an "Upload a file" button plus drag-and-drop onto the code panel, extension-based language detection, a 20,000-byte client-side size cap matching `ChatRequest.code`'s `max_length` in `app/schemas/chat.py`, a friendly oversize message, and a removable filename chip. Verified via Playwright (see Testing below) — attach, oversize-rejection, and the redirect/error-handling paths all pass in this sandbox. **Not yet verified against a live backend response** — that requires the backend actually running, which needs the Cerebras/litellm auth issue resolved first (see carryover).
+
+**Agree on and document the upload endpoint contract with Haitham.** Not resolved — this requires an actual conversation with Haitham that only Marwan can have. `docs/upload-endpoint-contract-proposal.md` is a concrete starting draft (a proposed `POST /api/v1/chatbot/uploads` multipart endpoint, request/response shape, and open questions) so that conversation has something specific to react to instead of starting cold. Until that's agreed, the interim flow (read file client-side, send as the existing `code` field) is what's implemented and tested.
+
+**Resolve carryover tasks from Week 3, or document dropped items with concrete justification.** No Week 3 planning docs exist in this repo, and none were available to review — the list below is *reconstructed* from this development session's actual debugging history, not sourced from a Week 3 task doc. **This needs Marwan's confirmation/correction before being treated as final** — see below.
+
+**Write and run smoke tests covering assigned features.** No test framework existed in the frontend before this sprint. Added Playwright (`frontend/playwright.config.ts`, `frontend/tests-e2e/smoke.spec.ts`) with 9 tests: unauthenticated redirect from `/` and `/chat`, login page render + register/login mode toggle, empty-field submit blocking, the new not-found page, graceful degradation when the chat page's history fetch fails, the new attach-file flow (both success and oversize-rejection), and a live-backend register→chat→logout round trip that auto-skips itself when no backend is reachable (so the suite still passes standalone). **Last run: 8 passed, 1 skipped (backend intentionally not running in this sandbox)** — full output in `frontend/tests-e2e/` alongside this doc.
+
+**PRD self-review.** This document.
+
+## Week 3 carryover — reconstructed, needs confirmation
+
+No Week 3 documentation exists in the repo to check against, so this list comes from this session's own debugging history rather than a source-of-truth task list. Please confirm, correct, or drop each with your own justification before this is treated as final:
+
+**Confirmed still broken (Aug 6):** the Cerebras/litellm gateway returned `401 Wrong API Key` on every LLM call earlier in this sprint; `LITELLM_API_KEY` and `LITELLM_BASE_URL` were subsequently set/corrected in `.env.development`, but that didn't fix it — a real chat message sent through the running app came back with the graph's built-in safety-check-failure fallback ("I couldn't complete a safety check just now...") instead of a real response, meaning the LLM provider still can't be reached successfully. This is a backend/gateway ownership issue, not something fixable from the frontend.
+
+The litellm gateway's fallback path was returning `404` for deprecated Gemini model IDs (`gemini-2.5-flash`, `gemini-2.0-flash`); this is server-side configuration on a shared gateway outside this repo, so nothing here can fix it directly — needs a hosted-gateway model-list check, same as above, unconfirmed.
+
+`GROQ_API_KEY` is still unset, so mem0 (long-term memory) throws `GroqError` on every memory operation — confirmed still happening as of the most recent backend log. Non-blocking (chat still returns 200), but memory features are fully degraded.
+
+`DEFAULT_LLM_MODEL=FW-Kimi-K2.6` in `.env.development` doesn't match the registry's lowercase key `fw-kimi-k2.6` (confirmed still present) — non-fatal (silently falls back to the first registered model) but should be a one-line fix.
+
+The Docker healthcheck for the `app` service previously timed out and was never root-caused; the workaround was running the backend locally instead of via `docker compose up`. This directly affects this sprint's containerization goal (see above) and is worth root-causing properly rather than continuing to route around it.
+
+## Drift summary
+
+The two items genuinely outside what a frontend-only sprint can close alone: the Haitham upload contract (needs his input, not just code) and the backend's `str(e)` error leak (needs a backend-side fix, flagged not applied). Everything else listed above as "resolved" was verified either by a passing build (`npm run build`), a passing Playwright run, or direct code inspection — not asserted without a check.

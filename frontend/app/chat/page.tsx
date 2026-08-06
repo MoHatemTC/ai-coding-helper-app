@@ -11,6 +11,9 @@ import {
 import { getSessionToken, getSessionName, clearAuth } from "@/lib/auth";
 
 // Matches ChatRequest.code max_length in app/schemas/chat.py — keep in sync.
+// There's no dedicated upload endpoint yet (see docs/upload-endpoint-contract-proposal.md);
+// until one exists, an attached file's text is read client-side and sent
+// inline as the same `code` field used for pasted code.
 const MAX_UPLOAD_BYTES = 20000;
 
 const EXTENSION_LANGUAGE_MAP: Record<string, string> = {

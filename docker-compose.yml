@@ -66,6 +66,29 @@ services:
     networks:
       - monitoring
 
+  # Frontend (Next.js). NEXT_PUBLIC_API_URL must be a host-reachable URL
+  # (http://localhost:8000), not the internal compose service name "app" --
+  # it's baked into the client JS bundle at build time and executed in the
+  # user's browser on the host, not inside this compose network.
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    # Deliberately NOT `condition: service_healthy` -- the app service's
+    # healthcheck has a known history of timing out in this project (see
+    # docs/prd-self-review.md, carryover items), and the frontend degrades
+    # gracefully via its own error handling when the backend isn't ready
+    # yet. Waiting on app's healthcheck would let one unrelated flaky
+    # healthcheck block the frontend container from starting at all.
+    depends_on:
+      - app
+    restart: on-failure
+    networks:
+      - monitoring
+
   # Prometheus
   prometheus:
     image: prom/prometheus:latest
@@ -79,11 +102,12 @@ services:
       - monitoring
     restart: always
 
-  # Grafana
+  # Grafana. Moved off host port 3000 (now used by the frontend below) --
+  # still listens on 3000 *inside* its own container, just published on 3001.
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3000:3000"
+      - "3001:3000"
     volumes:
       - grafana-storage:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards

@@ -1,0 +1,15 @@
+
+Running 9 tests using 1 worker
+
+  ✓  1 [chromium] › tests-e2e/smoke.spec.ts:33:7 › no backend required › root redirects unauthenticated users to /login (2.3s)
+  ✓  2 [chromium] › tests-e2e/smoke.spec.ts:39:7 › no backend required › chat redirects unauthenticated users to /login (1.4s)
+  ✓  3 [chromium] › tests-e2e/smoke.spec.ts:44:7 › no backend required › login page renders and toggles to register mode (1.1s)
+  ✓  4 [chromium] › tests-e2e/smoke.spec.ts:55:7 › no backend required › login form blocks submit with empty required fields (858ms)
+  ✓  5 [chromium] › tests-e2e/smoke.spec.ts:63:7 › no backend required › unmatched route shows the styled not-found page, not a broken screen (1.2s)
+  ✓  6 [chromium] › tests-e2e/smoke.spec.ts:69:7 › no backend required › authenticated chat page renders without crashing when the backend is unreachable (829ms)
+  ✓  7 [chromium] › tests-e2e/smoke.spec.ts:80:7 › no backend required › attach-code panel accepts pasted code and a dropped/uploaded file (967ms)
+  ✓  8 [chromium] › tests-e2e/smoke.spec.ts:101:7 › no backend required › oversized file attachment is rejected with a friendly message, not a crash (1.4s)
+  -  9 [chromium] › tests-e2e/smoke.spec.ts:127:7 › requires live backend › register -> land in chat -> log out round trip
+
+  1 skipped
+  8 passed (14.5s)

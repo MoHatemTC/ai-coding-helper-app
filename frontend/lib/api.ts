@@ -32,16 +32,65 @@ export type SessionResult = {
   token: Token;
 };
 
+/**
+ * Turns a failed Response into a short, user-safe message. Never surfaces
+ * raw response bodies, stack traces, or backend exception text — those are
+ * logged to the console for debugging but kept out of the UI.
+ */
 async function parseError(res: Response): Promise<string> {
+  let data: unknown;
   try {
-    const data = await res.json();
-    if (typeof data?.detail === "string") return data.detail;
-    if (Array.isArray(data?.errors)) {
-      return data.errors.map((e: { message?: string }) => e.message).join(", ");
-    }
-    return JSON.stringify(data);
+    data = await res.json();
   } catch {
-    return res.statusText || "Request failed";
+    data = undefined;
+  }
+
+  // 5xx = server-side failure. The backend's current error handlers put
+  // raw exception text (str(e)) straight into `detail` for these, which
+  // can include things like internal API error messages or model/config
+  // names — never safe to show a user. Always fall through to the generic
+  // status-based message below for 5xx, no matter what the body contains.
+  //
+  // 4xx is different: those are expected, intentional, user-facing
+  // messages from validation/auth (e.g. "Incorrect email or password"),
+  // so a short plain-string `detail` there is trusted.
+  if (res.status < 500) {
+    const detail = (data as { detail?: unknown } | undefined)?.detail;
+    if (typeof detail === "string" && detail.length < 300 && !/Traceback|File "/.test(detail)) {
+      return detail;
+    }
+    const errors = (data as { errors?: unknown } | undefined)?.errors;
+    if (Array.isArray(errors)) {
+      const joined = errors
+        .map((e) => (typeof e?.message === "string" ? e.message : null))
+        .filter((m): m is string => !!m)
+        .join(", ");
+      if (joined) return joined;
+    }
+  }
+
+  if (data !== undefined) {
+    // The backend returned something we don't recognize as safe to show
+    // verbatim (e.g. a validation object or an unexpected shape) — log it
+    // for debugging and fall through to a generic, status-coded message.
+    console.error("Unrecognized error response shape:", data);
+  }
+
+  switch (res.status) {
+    case 401:
+      return "Your session has expired. Please log in again.";
+    case 403:
+      return "You don't have permission to do that.";
+    case 404:
+      return "That couldn't be found.";
+    case 413:
+      return "That's too large to upload.";
+    case 429:
+      return "Too many requests — please wait a moment and try again.";
+    default:
+      return res.status >= 500
+        ? "Something went wrong on our end. Please try again in a moment."
+        : "Something went wrong. Please try again.";
   }
 }
 
