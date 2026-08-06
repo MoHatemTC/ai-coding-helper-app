@@ -150,16 +150,12 @@ class LangGraphAgent:
     def _build_graph_input(
         self,
         message: Message,
-        code: Optional[str] = None,
-        language: Optional[str] = None,
         pending_files: Optional[list] = None,
     ) -> dict:
         """Construct standard GraphState entry dictionary."""
         return {
             "messages": [message.model_dump()],
             "pending_files": pending_files or [],
-            "code": code,
-            "language": language,
             "outbound_attempts": 0,
         }
 
@@ -382,8 +378,6 @@ class LangGraphAgent:
         session_id: str,
         user_id: Optional[str] = None,
         username: Optional[str] = None,
-        code: Optional[str] = None,
-        language: Optional[str] = None,
         pending_files: Optional[list] = None,
     ) -> list[Message]:
         """Get non-streamed assistant hint response."""
@@ -397,7 +391,7 @@ class LangGraphAgent:
                 logger.info("resuming_interrupted_graph", session_id=session_id, next_nodes=state.next)
                 response = await graph.ainvoke(Command(resume=message.content), config=config)
             else:
-                graph_input = self._build_graph_input(message, code, language, pending_files)
+                graph_input = self._build_graph_input(message, pending_files)
                 response = await graph.ainvoke(input=graph_input, config=config)
 
             state = await graph.aget_state(config)
@@ -430,8 +424,6 @@ class LangGraphAgent:
         session_id: str,
         user_id: Optional[str] = None,
         username: Optional[str] = None,
-        code: Optional[str] = None,
-        language: Optional[str] = None,
         pending_files: Optional[list] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream assistant hint response tokens."""
@@ -445,7 +437,7 @@ class LangGraphAgent:
                 logger.info("resuming_interrupted_graph_stream", session_id=session_id, next_nodes=state.next)
                 graph_input = Command(resume=message.content)
             else:
-                graph_input = self._build_graph_input(message, code, language, pending_files)
+                graph_input = self._build_graph_input(message, pending_files)
 
             async for token, chunk_metadata in graph.astream(
                 graph_input,
