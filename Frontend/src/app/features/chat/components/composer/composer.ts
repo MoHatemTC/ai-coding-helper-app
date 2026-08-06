@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { ChatService } from '../../../../core/services/chat.service';
+import type { AgentMode } from '../../../../core/models/api';
 
 @Component({
   selector: 'app-composer',
@@ -20,6 +21,7 @@ export class Composer {
   readonly input = signal('');
   readonly files = signal<File[]>([]);
   readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+  readonly agentMode = this.chat.agentMode;
 
   readonly canSend = computed(
     () => (this.input().trim().length > 0 || this.files().length > 0) && !this.busy(),
@@ -52,6 +54,10 @@ export class Composer {
 
   removeFile(index: number): void {
     this.files.update((list) => list.filter((_, i) => i !== index));
+  }
+
+  setAgentMode(mode: AgentMode): void {
+    this.chat.setAgentMode(mode);
   }
 
   async send(): Promise<void> {

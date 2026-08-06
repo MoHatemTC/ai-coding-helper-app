@@ -51,6 +51,51 @@
   white-space: nowrap;
 }
 
+.composer-tools {
+  display: flex;
+  justify-content: center;
+  padding: 4px 4px 8px;
+}
+
+.agent-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+
+.agent-toggle-option {
+  border: none;
+  border-radius: 999px;
+  padding: 5px 16px;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &.active {
+    background: color-mix(in srgb, var(--mat-sys-primary) 18%, var(--app-surface-raised));
+    color: var(--mat-sys-primary);
+  }
+
+  &:hover:not(:disabled):not(.active) {
+    background: var(--app-surface-hover);
+    color: var(--app-text);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
 .remove-file {
   width: 24px;
   height: 24px;

@@ -53,6 +53,14 @@ def _int(env_key: str, default: int) -> int:
         return default
 
 
+def _float(env_key: str, default: float) -> float:
+    """Read a float setting from the environment."""
+    try:
+        return float(os.getenv(env_key, str(default)))
+    except ValueError:
+        return default
+
+
 @dataclass(frozen=True)
 class MCPConfig:
     """Settings consumed by the standalone MCP server."""
@@ -68,6 +76,7 @@ class MCPConfig:
     memory_collection_name: str
     embedding_model_name: str
     top_k_retrieval: int
+    chunk_similarity_threshold: float
     mcp_user_id: str | None
     guardrails_enabled: bool
 
@@ -84,6 +93,7 @@ config = MCPConfig(
     memory_collection_name=_str("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory"),
     embedding_model_name=_str("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
     top_k_retrieval=_int("TOP_K_RETRIEVAL", 5),
+    chunk_similarity_threshold=_float("CHUNK_SIMILARITY_THRESHOLD", 0.75),
     mcp_user_id=_str("MCP_USER_ID", "") or None,
     guardrails_enabled=_str("MCP_GUARDRAILS_ENABLED", "true").lower() in ("1", "true", "yes", "on"),
 )

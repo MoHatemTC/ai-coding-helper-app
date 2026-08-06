@@ -97,6 +97,7 @@ class VectorStoreService:
             A list of CodeChunk records ordered by similarity (most similar first).
         """
         k = top_k or settings.TOP_K_RETRIEVAL
+        threshold = settings.CHUNK_SIMILARITY_THRESHOLD
         query_vec = _embed([query])[0]
 
         conditions = ["ch.session_id = :session_id", "ch.user_id = :user_id"]
@@ -116,11 +117,13 @@ class VectorStoreService:
                     (ch.embedding <=> CAST(:query_vec AS vector)) AS distance
             FROM code_chunk ch
             WHERE {where_clause}
+              AND (ch.embedding <=> CAST(:query_vec AS vector)) <= :threshold
             ORDER BY distance ASC
             LIMIT :k
             """
         )
         params["query_vec"] = query_vec
+        params["threshold"] = threshold
 
         with Session(database_service.engine) as session:
             rows = session.execute(stmt, params).fetchall()

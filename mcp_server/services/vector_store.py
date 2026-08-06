@@ -134,6 +134,7 @@ def search_code_chunks(
         A list of Chunk records ordered by similarity (most similar first).
     """
     k = top_k or config.top_k_retrieval
+    threshold = config.chunk_similarity_threshold
 
     query_vec = _embed([query])[0]
 
@@ -152,11 +153,13 @@ def search_code_chunks(
                (ch.embedding <=> CAST(:query_vec AS vector)) AS distance
         FROM code_chunk ch
         WHERE {where_clause}
+          AND (ch.embedding <=> CAST(:query_vec AS vector)) <= :threshold
         ORDER BY distance ASC
         LIMIT :k
         """
     )
     params["query_vec"] = query_vec
+    params["threshold"] = threshold
 
     with Session(_get_engine()) as session:
         rows = session.execute(stmt, params).fetchall()

@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
 from app.core.langgraph.ReAct_agent_graph import ReActAgent
+from app.core.langgraph.graph import LangGraphAgent
 from app.core.limiter import limiter
 from app.core.logging import logger
 from app.core.metrics import llm_stream_duration_seconds
@@ -39,7 +40,47 @@ from app.services.session_naming import maybe_name_session
 
 
 router = APIRouter()
-agent = ReActAgent()
+
+# Chat agent modes selectable per message via the `mode` form field.
+VALID_AGENT_MODES = ("reasoning", "fast")
+
+_reasoning_agent = ReActAgent()
+_fast_agent: LangGraphAgent | None = None
+
+# Kept for the app lifespan pre-warm (start_mcp/create_graph/stop_mcp).
+agent = _reasoning_agent
+
+
+def get_agent(mode: str) -> ReActAgent | LangGraphAgent:
+    """Return the chat agent for a mode ('reasoning' or 'fast').
+
+    Agents are cached singletons so each mode keeps its own connection pool,
+    graph, and MCP lifecycle. The ReAct (reasoning) agent is the default and
+    is pre-warmed by the app lifespan.
+    """
+    global _fast_agent
+    if mode == "fast":
+        if _fast_agent is None:
+            _fast_agent = LangGraphAgent()
+        return _fast_agent
+    return _reasoning_agent
+
+
+def _resolve_mode(mode: str) -> str:
+    """Validate a mode value, raising 400 for anything unknown."""
+    if mode not in VALID_AGENT_MODES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"invalid_mode: {mode}")
+    return mode
+
+
+async def close_agents() -> None:
+    """Close both agents' connection pools on application shutdown."""
+    for candidate in (_reasoning_agent, _fast_agent):
+        if candidate is None:
+            continue
+        pool = getattr(candidate, "_connection_pool", None)
+        if pool:
+            await pool.close()
 
 
 async def _process_files(
@@ -54,6 +95,12 @@ async def _process_files(
     files = [file for file in files if file.filename]
     if not files:
         return []
+
+    if len(files) > settings.MAX_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"too_many_files: {len(files)} exceeds {settings.MAX_FILES_PER_REQUEST} limit",
+        )
 
     errors = []
     for file in files:
@@ -84,16 +131,19 @@ async def chat(
     message: str = Form(...),
     session: Session = Depends(get_current_session),
     files: list[UploadFile] | None = File(None),
+    mode: str = Form("reasoning"),
 ):
     """Process a chat request using LangGraph.
 
-    Accepts multipart/form-data with the message text and optional code files.
-    Uploaded files are split, embedded, and stored in the vector database
-    before the LLM generates a response.
+    Accepts multipart/form-data with the message text, an optional agent
+    ``mode`` ('reasoning' = ReAct agent, 'fast' = workflow agent), and optional
+    code files. Uploaded files are split, embedded, and stored in the vector
+    database before the LLM generates a response.
 
     Returns only the user and assistant messages from this request.
     Message storage happens as a graph node after the LLM response.
     """
+    agent = get_agent(_resolve_mode(mode))
     try:
         logger.info(
             "chat_request_received",
@@ -142,13 +192,16 @@ async def chat_stream(
     message: str = Form(...),
     session: Session = Depends(get_current_session),
     files: list[UploadFile] | None = File(None),
+    mode: str = Form("reasoning"),
 ):
     """Process a chat request using LangGraph with streaming response.
 
-    Accepts multipart/form-data with the message text and optional code files.
-    Uploaded files are split, embedded, and stored in the vector database
-    before the LLM generates a response.
+    Accepts multipart/form-data with the message text, an optional agent
+    ``mode`` ('reasoning' = ReAct agent, 'fast' = workflow agent), and optional
+    code files. Uploaded files are split, embedded, and stored in the vector
+    database before the LLM generates a response.
     """
+    agent = get_agent(_resolve_mode(mode))
     try:
         logger.info(
             "stream_chat_request_received",

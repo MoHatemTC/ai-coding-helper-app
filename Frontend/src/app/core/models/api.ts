@@ -45,6 +45,8 @@ export interface FileAttachment {
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
+export type AgentMode = 'reasoning' | 'fast';
+
 export interface ChatMessage {
   role: MessageRole;
   content: string;

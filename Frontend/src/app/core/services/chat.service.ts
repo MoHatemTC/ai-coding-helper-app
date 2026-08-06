@@ -3,7 +3,7 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { ChatMessage, ChatResponse, FileAttachment, PaginatedChatResponse } from '../models/api';
+import type { AgentMode, ChatMessage, ChatResponse, FileAttachment, PaginatedChatResponse } from '../models/api';
 import { SessionService } from './session.service';
 import { StreamService } from './stream.service';
 
@@ -16,6 +16,7 @@ export interface ViewMessage extends ChatMessage {
 export type ChatMode = 'normal' | 'stream';
 
 const MODE_KEY = 'ai_chat_mode';
+const AGENT_MODE_KEY = 'ai_agent_mode';
 
 /**
  * The backend augments user messages that carry file attachments with a
@@ -38,6 +39,11 @@ export class ChatService {
     localStorage.getItem(MODE_KEY) === 'stream' ? 'stream' : 'normal',
   );
   readonly mode = this.modeSignal.asReadonly();
+
+  private readonly agentModeSignal = signal<AgentMode>(
+    localStorage.getItem(AGENT_MODE_KEY) === 'fast' ? 'fast' : 'reasoning',
+  );
+  readonly agentMode = this.agentModeSignal.asReadonly();
 
   readonly messages = signal<ViewMessage[]>([]);
   readonly busy = signal(false);
@@ -62,6 +68,11 @@ export class ChatService {
   setMode(mode: ChatMode): void {
     this.modeSignal.set(mode);
     localStorage.setItem(MODE_KEY, mode);
+  }
+
+  setAgentMode(mode: AgentMode): void {
+    this.agentModeSignal.set(mode);
+    localStorage.setItem(AGENT_MODE_KEY, mode);
   }
 
   async loadMessages(): Promise<void> {
@@ -185,6 +196,7 @@ export class ChatService {
   private async sendNormal(text: string, files: File[]): Promise<void> {
     const body = new FormData();
     body.append('message', text);
+    body.append('mode', this.agentModeSignal());
     for (const file of files) {
       body.append('files', file, file.name);
     }
@@ -220,6 +232,7 @@ export class ChatService {
 
     await this.stream.post(session.session_id, text, files, {
       signal: this.abortController.signal,
+      mode: this.agentModeSignal(),
       onChunk: (content) => {
         this.messages.update((list) => {
           const last = list[list.length - 1];

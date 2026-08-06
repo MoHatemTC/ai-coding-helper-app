@@ -1,11 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
-import type { StreamEvent } from '../models/api';
+import type { AgentMode, StreamEvent } from '../models/api';
 import { SessionService } from './session.service';
 
 export interface StreamOptions {
   signal?: AbortSignal;
+  mode?: AgentMode;
   onChunk: (content: string) => void;
   onDone: () => void;
   onError: (message: string) => void;
@@ -26,6 +27,7 @@ export class StreamService {
 
     const body = new FormData();
     body.append('message', message);
+    body.append('mode', options.mode ?? 'reasoning');
     for (const file of files) {
       body.append('files', file, file.name);
     }

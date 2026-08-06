@@ -25,7 +25,7 @@ from slowapi.errors import RateLimitExceeded
 from asgi_correlation_id import CorrelationIdMiddleware
 
 from app.api.v1.api import api_router
-from app.api.v1.chatbot import agent
+from app.api.v1.chatbot import agent, close_agents
 from app.core.cache import cache_service
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -97,9 +97,8 @@ async def lifespan(app: FastAPI):
     await skill_profile_service.shutdown()
     await cache_service.close()
     await agent.stop_mcp()
-    if agent._connection_pool:
-        await agent._connection_pool.close()
-        logger.info("connection_pool_closed")
+    await close_agents()
+    logger.info("agent_resources_closed")
     logger.info("application_shutdown")
 
 

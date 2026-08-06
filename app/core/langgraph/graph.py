@@ -191,7 +191,7 @@ class LangGraphAgent:
                 query=user_query,
                 session_id=str(session_id or ""),
                 user_id=parsed_user_id,
-                top_k=3,
+                top_k=15,
             ),
             memory_service.search(user_id, user_query),
             skill_profile_service.render_for_prompt_async(parsed_user_id)

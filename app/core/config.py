@@ -172,6 +172,7 @@ class Settings:
         # Document Pipeline Configuration
         self.UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
         self.MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024)))  # 10MB default
+        self.MAX_FILES_PER_REQUEST = int(os.getenv("MAX_FILES_PER_REQUEST", "10"))
         self.ALLOWED_EXTENSIONS = parse_list_from_env(
             "ALLOWED_EXTENSIONS",
             [
@@ -225,6 +226,10 @@ class Settings:
             ],
         )
         self.TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
+        # Cosine-distance cutoff (pgvector <=>). Chunks farther than this are
+        # not returned, so retrieval returns only relevant results instead of a
+        # fixed top-k that may include unrelated chunks.
+        self.CHUNK_SIMILARITY_THRESHOLD = float(os.getenv("CHUNK_SIMILARITY_THRESHOLD", "0.75"))
         self.EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
         self.EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))
         # Use the standalone mcp_server's tools (web_search, search_code,

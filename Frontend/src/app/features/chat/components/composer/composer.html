@@ -19,6 +19,29 @@
       </div>
     }
 
+    <div class="composer-tools">
+      <div class="agent-toggle" role="group" aria-label="Agent mode">
+        <button
+          type="button"
+          class="agent-toggle-option"
+          [class.active]="agentMode() === 'reasoning'"
+          [disabled]="busy()"
+          (click)="setAgentMode('reasoning')"
+        >
+          Reasoning
+        </button>
+        <button
+          type="button"
+          class="agent-toggle-option"
+          [class.active]="agentMode() === 'fast'"
+          [disabled]="busy()"
+          (click)="setAgentMode('fast')"
+        >
+          Fast
+        </button>
+      </div>
+    </div>
+
     <div class="composer-row">
       <button
         mat-icon-button
