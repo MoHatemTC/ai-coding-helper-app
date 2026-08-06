@@ -53,7 +53,7 @@ INBOUND_REDIRECTS: dict[InboundTriggerReason, str] = {
     reraise=True,
 )
 async def _invoke_intent_judge(
-    model: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 10.0
+    model: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 60.0
 ) -> InboundIntentJudgeOutput:
     """Invoke one client and validate its structured intent decision."""
     if hasattr(model, "call"):

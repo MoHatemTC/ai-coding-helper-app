@@ -94,8 +94,8 @@ async def get_current_user(
     except ValueError as ve:
         logger.exception("token_validation_failed", error=str(ve))
         raise HTTPException(
-            status_code=422,
-            detail="Invalid token format",
+            status_code=401,
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -147,8 +147,8 @@ async def get_current_session(
     except ValueError as ve:
         logger.exception("token_validation_failed", error=str(ve))
         raise HTTPException(
-            status_code=422,
-            detail="Invalid token format",
+            status_code=401,
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

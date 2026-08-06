@@ -94,6 +94,14 @@ class DocumentService:
         if ext not in settings.ALLOWED_EXTENSIONS:
             return f"extension_not_allowed: {ext}"
 
+        # Reject clearly-binary files: source files are text, and a null byte
+        # in the first 1 KiB is a reliable binary signal regardless of the
+        # client-supplied Content-Type.
+        head = await file.read(1024)
+        file.file.seek(0)
+        if b"\x00" in head:
+            return "binary_content_not_allowed"
+
         # Check file size by seeking to end
         file.file.seek(0, 2)
         size = file.file.tell()
