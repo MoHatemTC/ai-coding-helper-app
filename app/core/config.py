@@ -150,7 +150,9 @@ class Settings:
         self.LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm")
         self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "gemini/gemini-3.6-flash")
         self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "gemini/gemini-3.6-flash")
+        self.LITE_LLM_MODEL = os.getenv("LITE_LLM_MODEL", "gemini/gemini-3.5-flash-lite")
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
+        self.SESSION_NAMING_MODEL = os.getenv("SESSION_NAMING_MODEL", self.LITE_LLM_MODEL)
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
         self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "3"))
@@ -158,15 +160,14 @@ class Settings:
         self.MODEL_MAX_CONTEXT_WINDOW = int(os.getenv("MODEL_MAX_CONTEXT_WINDOW", "250000"))
 
         # Long term memory Configuration
-        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
-        self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
+        self.MEMORY_LLM_MODEL = os.getenv("MEMORY_LLM_MODEL", self.LITE_LLM_MODEL)
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
         self.MEMORY_CONSOLIDATION_THRESHOLD = int(os.getenv("MEMORY_CONSOLIDATION_THRESHOLD", "1000"))
         self.MEMORY_CONSOLIDATION_TARGET = int(os.getenv("MEMORY_CONSOLIDATION_TARGET", "100"))
 
         # Skill Profile Configuration
         self.SKILL_PROFILE_SILENCE_SECONDS = int(os.getenv("SKILL_PROFILE_SILENCE_SECONDS", "1800"))
-        self.SKILL_PROFILE_MODEL = os.getenv("SKILL_PROFILE_MODEL", self.DEFAULT_LLM_MODEL)
+        self.SKILL_PROFILE_MODEL = os.getenv("SKILL_PROFILE_MODEL", self.LITE_LLM_MODEL)
         self.SKILL_PROFILE_MAX_TOKENS = int(os.getenv("SKILL_PROFILE_MAX_TOKENS", "2048"))
 
         # Document Pipeline Configuration

@@ -59,7 +59,7 @@ class MemoryService:
                     "llm": {
                         "provider": "openai",
                         "config": {
-                            "model": settings.DEFAULT_LLM_MODEL,
+                            "model": settings.MEMORY_LLM_MODEL,
                             "api_key": settings.LITELLM_API_KEY,
                             "openai_base_url": settings.LITELLM_BASE_URL,
                             "max_tokens": 400,
@@ -175,7 +175,7 @@ class MemoryService:
             target = settings.MEMORY_CONSOLIDATION_TARGET
 
             # Use structured output for deterministic parsing
-            llm = LLMRegistry.get("llama-3.3-70b-versatile", temperature=0, max_tokens=500)
+            llm = LLMRegistry.get(settings.MEMORY_LLM_MODEL, temperature=0, max_tokens=500)
             structured_llm = llm.with_structured_output(ConsolidatedFacts)
             raw_result = await structured_llm.ainvoke(
                 [

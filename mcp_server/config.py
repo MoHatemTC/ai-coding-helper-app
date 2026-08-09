@@ -67,7 +67,9 @@ class MCPConfig:
 
     environment: str
     tavily_api_key: str
-    groq_api_key: str
+    litellm_api_key: str
+    litellm_base_url: str
+    memory_llm_model: str
     postgres_host: str
     postgres_port: int
     postgres_db: str
@@ -84,7 +86,9 @@ class MCPConfig:
 config = MCPConfig(
     environment=_ENV,
     tavily_api_key=_str("TAVILY_API_KEY", ""),
-    groq_api_key=_str("GROQ_API_KEY", ""),
+    litellm_api_key=_str("LITELLM_API_KEY", ""),
+    litellm_base_url=_str("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm"),
+    memory_llm_model=_str("MEMORY_LLM_MODEL", "gemini/gemini-3.5-flash-lite"),
     postgres_host=_str("POSTGRES_HOST", "localhost"),
     postgres_port=_int("POSTGRES_PORT", 5432),
     postgres_db=_str("POSTGRES_DB", "food_order_db"),

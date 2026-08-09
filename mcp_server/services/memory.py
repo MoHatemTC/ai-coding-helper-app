@@ -2,7 +2,7 @@
 
 Kept deliberately thin: no caching, no consolidation, no LLM registry. It
 only needs to search a user's memories, using the same pgvector collection
-and groq LLM configuration as the application.
+and LiteLLM LLM configuration as the application.
 """
 
 from mem0 import AsyncMemory
@@ -35,10 +35,11 @@ class MemoryService:
                         },
                     },
                     "llm": {
-                        "provider": "groq",
+                        "provider": "openai",
                         "config": {
-                            "model": "llama-3.3-70b-versatile",
-                            "api_key": config.groq_api_key,
+                            "model": config.memory_llm_model,
+                            "api_key": config.litellm_api_key,
+                            "openai_base_url": config.litellm_base_url,
                             "max_tokens": 400,
                         },
                     },

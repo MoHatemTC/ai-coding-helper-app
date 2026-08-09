@@ -18,6 +18,7 @@ from sqlmodel import (
     update,
 )
 
+from app.core.config import settings
 from app.core.logging import logger
 from app.core.metrics import session_names_generated_total
 from app.core.prompts import SESSION_TITLE_PROMPT
@@ -25,7 +26,6 @@ from app.models.session import Session as ChatSession
 from app.schemas.chat import SessionTitle
 from app.services.database import database_service
 from app.services.llm import llm_service
-import os
 
 _PLACEHOLDER_MAX = 40
 
@@ -61,7 +61,7 @@ async def _persist_session_name(session_id: str, user_message: str) -> None:
                 SystemMessage(content=SESSION_TITLE_PROMPT),
                 HumanMessage(content=user_message[:500]),
             ],
-            model_name=os.environ.get("SESSION_NAMING_MODEL", "llama-3.1-8b-instant"),
+            model_name=settings.SESSION_NAMING_MODEL,
             response_format=SessionTitle,
             # Reasoning models spend output budget "thinking" before emitting the
             # title; a tiny cap truncates mid-reasoning and the structured-output

@@ -38,6 +38,19 @@ class LLMRegistry:
                 "api_key": settings.LITELLM_API_KEY,
             },
         },
+        {
+            "name": settings.LITE_LLM_MODEL,
+            "llm": ChatOpenAI(
+                model=settings.LITE_LLM_MODEL,
+                base_url=settings.LITELLM_BASE_URL,
+                api_key=SecretStr(settings.LITELLM_API_KEY),
+            ),
+            "llm_class": ChatOpenAI,
+            "constructor_kwargs": {
+                "base_url": settings.LITELLM_BASE_URL,
+                "api_key": settings.LITELLM_API_KEY,
+            },
+        },
     ]
 
     @classmethod
