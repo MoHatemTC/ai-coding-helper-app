@@ -1,19 +1,18 @@
 @use '@angular/material' as mat;
 
-// Material 3 dark theme. `color-scheme: dark` switches the theme tokens
-// from the light to the dark variant of the selected palettes.
+// Light theme, branded around a confident blue accent.
 html {
   height: 100%;
 
-  color-scheme: dark;
+  color-scheme: light;
 
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: mat.$blue-palette,
+        tertiary: mat.$azure-palette,
       ),
-      typography: Roboto,
+      typography: Quicksand,
       density: 0,
     )
   );
@@ -21,16 +20,18 @@ html {
 
 // Application-level design tokens for the chat surfaces.
 :root {
-  --app-bg: #0b0b0f;
-  --app-surface: #131318;
-  --app-surface-raised: #1b1b22;
-  --app-surface-hover: #22222b;
-  --app-border: #2a2a35;
-  --app-text: #e7e7ee;
-  --app-text-muted: #9b9ba8;
-  --app-text-faint: #6b6b78;
+  --app-bg: #f5f8ff;
+  --app-surface: #eef2fc;
+  --app-surface-raised: #ffffff;
+  --app-surface-hover: #e4eafb;
+  --app-border: #dce3f5;
+  --app-text: #14171f;
+  --app-text-muted: #5b6472;
+  --app-text-faint: #9aa2af;
   --app-accent: var(--mat-sys-primary);
-  --app-sidebar-width: 280px;
+  --app-brand-blue: #2f6feb;
+  --app-brand-blue-strong: #1f4fc4;
+  --app-sidebar-width: 288px;
 }
 
 *,
@@ -48,7 +49,7 @@ body {
   margin: 0;
   background-color: var(--app-bg);
   color: var(--app-text);
-  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  font-family: Quicksand, 'Helvetica Neue', sans-serif;
   overflow: hidden;
 }
 

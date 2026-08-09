@@ -3,7 +3,13 @@
     <button mat-icon-button aria-label="Open menu" (click)="openSidebar()">
       <mat-icon>menu</mat-icon>
     </button>
-    <h1 class="title">{{ title() }}</h1>
+    <span class="header-brand">
+      <mat-icon>cloud</mat-icon>
+    </span>
+    <button class="title-btn" aria-label="Open chat list" (click)="openSidebar()">
+      <span class="title">{{ title() }}</span>
+      <mat-icon class="title-caret">expand_more</mat-icon>
+    </button>
   </div>
 
   <div class="header-right">
@@ -24,6 +30,7 @@
 
     <button
       mat-icon-button
+      class="clear-btn"
       aria-label="Clear conversation"
       matTooltip="Clear conversation"
       (click)="clearChat()"

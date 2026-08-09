@@ -15,7 +15,9 @@
 
     @if (messages().length === 0 && !busy()) {
       <div class="welcome">
-        <mat-icon class="welcome-icon">code</mat-icon>
+        <div class="welcome-icon-wrap">
+          <mat-icon class="welcome-icon">code</mat-icon>
+        </div>
         <h2>How can I help with your code?</h2>
         <p>
           Ask questions, paste code, or attach source files. I can review code, explain

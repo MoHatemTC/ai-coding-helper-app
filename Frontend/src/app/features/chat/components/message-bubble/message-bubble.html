@@ -39,6 +39,12 @@
       }
 
       @if (message().content && !message().streaming) {
+        <div class="bubble-signature">
+          <mat-icon>cloud</mat-icon>
+        </div>
+      }
+
+      @if (message().content && !message().streaming) {
         <div class="bubble-actions">
           <button
             mat-icon-button
