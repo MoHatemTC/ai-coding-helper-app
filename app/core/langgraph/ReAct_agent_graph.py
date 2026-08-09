@@ -60,7 +60,7 @@ from app.core.langgraph.tools.code_search import (
 )
 from app.core.langgraph.tools.duckduckgo_search import duckduckgo_search_tool
 from app.core.logging import logger
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import new_langfuse_callback_handler
 from app.core.prompts import load_system_prompt
 from app.schemas import (
     GraphState,
@@ -288,7 +288,8 @@ class ReActAgent:
     ) -> tuple[CompiledStateGraph, RunnableConfig, dict]:
         """Build the config and graph input for one conversation turn."""
         graph = await self._get_graph()
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        handler = new_langfuse_callback_handler()
+        callbacks: list[BaseCallbackHandler] = [handler] if handler else []
         config: RunnableConfig = {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,

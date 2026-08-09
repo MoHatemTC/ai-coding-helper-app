@@ -45,6 +45,17 @@ def get_langfuse_callback_handler() -> CallbackHandler:
     return CallbackHandler()
 
 
+def new_langfuse_callback_handler() -> CallbackHandler | None:
+    """Create a per-request Langfuse callback handler, or None when tracing is off.
+
+    Returns:
+        A fresh CallbackHandler instance when tracing is enabled, else None.
+    """
+    if not settings.LANGFUSE_TRACING_ENABLED:
+        return None
+    return CallbackHandler()
+
+
 langfuse_callback_handler = get_langfuse_callback_handler()
 
 
@@ -70,7 +81,7 @@ def build_langfuse_config(config: RunnableConfig | None) -> RunnableConfig:
     else:
         callbacks = []
 
-    if settings.LANGFUSE_TRACING_ENABLED and langfuse_callback_handler not in callbacks:
+    if settings.LANGFUSE_TRACING_ENABLED and not any(isinstance(cb, CallbackHandler) for cb in callbacks):
         callbacks.append(langfuse_callback_handler)
 
     merged: dict[str, Any] = {}

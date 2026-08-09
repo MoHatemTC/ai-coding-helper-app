@@ -41,6 +41,7 @@ from app.services.database import database_service
 from app.services.memory import memory_service
 from app.services.checkpoint_cleanup import run_checkpoint_cleanup
 from app.services.skill_profile import skill_profile_service
+from app.services.vector_store import warmup_embedder
 
 # Load environment variables
 load_dotenv()
@@ -86,6 +87,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("memory_service_pre_warm_failed", error=str(e))
 
+    # Pre-warm the SentenceTransformer embedding model in a worker thread so the
+    # first code search / upload doesn't pay cold-start latency or race to load.
+    try:
+        await asyncio.to_thread(warmup_embedder)
+        logger.info("embedding_model_pre_warmed")
+    except Exception as e:
+        logger.exception("embedding_model_pre_warm_failed", error=str(e))
+
     # Start checkpoint cleanup background task
     checkpoint_cleanup_task = asyncio.create_task(run_checkpoint_cleanup())
     logger.info("checkpoint_cleanup_started", ttl_days=settings.CHECKPOINT_TTL_DAYS)
@@ -99,6 +108,11 @@ async def lifespan(app: FastAPI):
     await agent.stop_mcp()
     await close_agents()
     logger.info("agent_resources_closed")
+    try:
+        await asyncio.to_thread(database_service.engine.dispose)
+        logger.info("database_engine_disposed")
+    except Exception as e:
+        logger.exception("database_engine_dispose_failed", error=str(e))
     langfuse_flush()
     logger.info("application_shutdown")
 

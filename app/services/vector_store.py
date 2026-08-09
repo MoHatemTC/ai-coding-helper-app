@@ -1,5 +1,7 @@
 """Vector store service: embed chunks, store in pgvector, search, and clean up."""
 
+import threading
+
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import text
 from sqlmodel import Session, col, select
@@ -11,15 +13,23 @@ from app.services.database import database_service
 
 
 _embedder: SentenceTransformer | None = None
+_embedder_lock = threading.Lock()
 
 
 def _get_embedder() -> SentenceTransformer:
-    """Lazy-load the embedding model singleton."""
+    """Lazy-load the embedding model singleton (thread-safe)."""
     global _embedder
     if _embedder is None:
-        logger.info("loading_embedding_model", model=settings.EMBEDDING_MODEL_NAME)
-        _embedder = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
+        with _embedder_lock:
+            if _embedder is None:
+                logger.info("loading_embedding_model", model=settings.EMBEDDING_MODEL_NAME)
+                _embedder = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
     return _embedder
+
+
+def warmup_embedder() -> None:
+    """Pre-load the embedding model so first requests don't pay cold start."""
+    _get_embedder()
 
 
 def _embed(texts: list[str]) -> list[list[float]]:

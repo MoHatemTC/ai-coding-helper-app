@@ -4,6 +4,7 @@ from typing import (
     Any,
     Dict,
     List,
+    Tuple,
 )
 
 from dotenv import load_dotenv
@@ -53,6 +54,8 @@ class LLMRegistry:
         },
     ]
 
+    _VARIANT_CACHE: Dict[Tuple[str, Tuple[Tuple[str, Any], ...]], BaseChatModel] = {}
+
     @classmethod
     def get(cls, model_name: str, **kwargs) -> BaseChatModel:
         """Get an LLM by name with optional argument overrides.
@@ -78,6 +81,14 @@ class LLMRegistry:
             raise ValueError(f"model '{model_name}' not found in registry. available models: {available}")
 
         if kwargs:
+            try:
+                cache_key = (model_name, tuple(sorted(kwargs.items())))
+            except TypeError:
+                cache_key = None
+            if cache_key is not None and cache_key in cls._VARIANT_CACHE:
+                logger.debug("using_cached_llm_variant", model_name=model_name)
+                return cls._VARIANT_CACHE[cache_key]
+
             llm_class = model_entry["llm_class"]
             extra = model_entry.get("constructor_kwargs", {})
             logger.debug(
@@ -86,7 +97,10 @@ class LLMRegistry:
                 llm_class=llm_class.__name__,
                 custom_args=list(kwargs.keys()),
             )
-            return llm_class(model=model_name, **extra, **kwargs)
+            instance = llm_class(model=model_name, **extra, **kwargs)
+            if cache_key is not None:
+                cls._VARIANT_CACHE[cache_key] = instance
+            return instance
 
         logger.debug("using_default_llm_instance", model_name=model_name)
         return model_entry["llm"]

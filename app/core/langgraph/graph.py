@@ -55,7 +55,7 @@ from app.core.langgraph.nodes.outbound import (
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
 from app.core.logging import logger
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import new_langfuse_callback_handler
 from app.schemas import (
     GraphState,
     Message,
@@ -134,7 +134,8 @@ class LangGraphAgent:
         username: Optional[str] = None,
     ) -> RunnableConfig:
         """Construct standard RunnableConfig metadata payload."""
-        callbacks: list[BaseCallbackHandler] = [langfuse_callback_handler] if settings.LANGFUSE_TRACING_ENABLED else []
+        handler = new_langfuse_callback_handler()
+        callbacks: list[BaseCallbackHandler] = [handler] if handler else []
         return {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,
