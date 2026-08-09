@@ -24,7 +24,7 @@ def langfuse_init():
         secret_key=settings.LANGFUSE_SECRET_KEY,
         host=settings.LANGFUSE_HOST,
         environment=settings.ENVIRONMENT.value,
-        debug=settings.DEBUG,
+        debug=settings.LANGFUSE_DEBUG,
     )
 
     try:

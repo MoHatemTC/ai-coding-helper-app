@@ -273,6 +273,8 @@ logging.getLogger("huggingface_hub").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 logging.getLogger("transformers").setLevel(logging.WARNING)
 logging.getLogger("psycopg").setLevel(logging.WARNING)
+logging.getLogger("langfuse").setLevel(logging.WARNING)
+logging.getLogger("mem0").setLevel(logging.WARNING)
 warnings.filterwarnings("ignore", category=FutureWarning, module="mem0")
 os.environ.setdefault("TQDM_DISABLE", "1")
 

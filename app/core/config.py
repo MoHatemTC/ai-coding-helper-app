@@ -144,6 +144,12 @@ class Settings:
         self.LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
         self.LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
         self.LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        self.LANGFUSE_DEBUG = os.getenv("LANGFUSE_DEBUG", "false").lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
 
         # LangGraph Configuration
         self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
