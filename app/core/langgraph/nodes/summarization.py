@@ -1,6 +1,7 @@
 """LangGraph node for summarizing older conversation context."""
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables.config import RunnableConfig
 
 from app.core.config import settings
 from app.core.logging import logger
@@ -20,7 +21,7 @@ Rules:
 - Focus on substantive content only"""
 
 
-async def summarization_node(state: GraphState) -> Command:
+async def summarization_node(state: GraphState, config: RunnableConfig | None = None) -> Command:
     """Summarize older messages when token count exceeds budget.
 
     Always updates last_message_index to track new messages.
@@ -28,6 +29,8 @@ async def summarization_node(state: GraphState) -> Command:
 
     Args:
         state: The current graph state containing messages and summary.
+        config: Optional runnable config forwarded to the LLM call so
+            langfuse tracing callbacks reach summarization.
 
     Returns:
         Dict with last_message_index updated, and summary if summarization was triggered.
@@ -90,6 +93,7 @@ async def summarization_node(state: GraphState) -> Command:
             ],
             temperature=0,
             max_tokens=2048,
+            config=config,
         )
 
         new_summary = summary_response.content if hasattr(summary_response, "content") else str(summary_response)

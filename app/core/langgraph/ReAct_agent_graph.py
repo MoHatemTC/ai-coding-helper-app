@@ -298,6 +298,8 @@ class ReActAgent:
                 "session_id": session_id,
                 "environment": settings.ENVIRONMENT.value,
                 "debug": settings.DEBUG,
+                "langfuse_session_id": session_id,
+                "langfuse_user_id": user_id,
             },
         }
 

@@ -17,9 +17,11 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import Command
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.core.observability import build_langfuse_config
 from app.prompts.guardrails import OUTBOUND_SYSTEM_PROMPT
 from app.schemas import GraphState
 from app.schemas.review import OutboundJudgeOutput, OutboundTriggerReason
@@ -50,18 +52,21 @@ SAFE_TIMEOUT_RESPONSE = (
     reraise=True,
 )
 async def _invoke_outbound_judge(
-    model: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 10.0
+    model: Any,
+    messages: list[SystemMessage | HumanMessage],
+    timeout: float = 10.0,
+    config: RunnableConfig | None = None,
 ) -> OutboundJudgeOutput:
     """Invoke one model and validate its structured outbound decision."""
     if hasattr(model, "call"):
         response: Any = await asyncio.wait_for(
-            model.call(messages, response_format=OutboundJudgeOutput),
+            model.call(messages, response_format=OutboundJudgeOutput, config=config),
             timeout=timeout,
         )
     else:
         structured_client: Any = model.with_structured_output(OutboundJudgeOutput)
         response = await asyncio.wait_for(
-            structured_client.ainvoke(messages),
+            structured_client.ainvoke(messages, config=build_langfuse_config(config)),
             timeout=timeout,
         )
     return response if isinstance(response, OutboundJudgeOutput) else OutboundJudgeOutput.model_validate(response)
@@ -102,7 +107,7 @@ def _collect_retrieved_code(state: GraphState) -> str:
     return "\n---\n".join(sections)
 
 
-async def outbound_node(state: GraphState) -> Command:
+async def outbound_node(state: GraphState, config: RunnableConfig | None = None) -> Command:
     """Judge the agent's latest draft and route it to delivery or regeneration.
 
     Reads the last HumanMessage, the last AIMessage, and the search_code
@@ -138,7 +143,7 @@ async def outbound_node(state: GraphState) -> Command:
     attempts_used = state.outbound_attempts + 1
 
     try:
-        decision = await _invoke_outbound_judge(model, messages)
+        decision = await _invoke_outbound_judge(model, messages, config=config)
         logger.info(
             "outbound_primary_completed",
             is_safe_output=decision.is_safe_output,

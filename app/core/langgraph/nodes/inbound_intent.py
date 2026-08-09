@@ -13,9 +13,11 @@ from typing import Any
 
 import structlog
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph.state import Command
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.core.observability import build_langfuse_config
 from app.prompts.guardrails import INBOUND_INTENT_SYSTEM_PROMPT
 from app.schemas import GraphState
 from app.schemas.review import InboundIntentJudgeOutput, InboundTriggerReason
@@ -53,18 +55,21 @@ INBOUND_REDIRECTS: dict[InboundTriggerReason, str] = {
     reraise=True,
 )
 async def _invoke_intent_judge(
-    model: Any, messages: list[SystemMessage | HumanMessage], timeout: float = 60.0
+    model: Any,
+    messages: list[SystemMessage | HumanMessage],
+    timeout: float = 60.0,
+    config: RunnableConfig | None = None,
 ) -> InboundIntentJudgeOutput:
     """Invoke one client and validate its structured intent decision."""
     if hasattr(model, "call"):
         response: Any = await asyncio.wait_for(
-            model.call(messages, response_format=InboundIntentJudgeOutput),
+            model.call(messages, response_format=InboundIntentJudgeOutput, config=config),
             timeout=timeout,
         )
     else:
         structured_client: Any = model.with_structured_output(InboundIntentJudgeOutput)
         response = await asyncio.wait_for(
-            structured_client.ainvoke(messages),
+            structured_client.ainvoke(messages, config=build_langfuse_config(config)),
             timeout=timeout,
         )
     return (
@@ -93,7 +98,7 @@ async def _read_redacted_code(state: GraphState) -> str:
     return "\n\n".join(sections)
 
 
-async def inbound_intent_node(state: GraphState) -> Command:
+async def inbound_intent_node(state: GraphState, config: RunnableConfig | None = None) -> Command:
     """Judge request intent and gate the mentoring workflow.
 
     The query and any uploaded code are already redacted by stage 1. Safe
@@ -118,7 +123,7 @@ async def inbound_intent_node(state: GraphState) -> Command:
     model = llm_service
 
     try:
-        decision = await _invoke_intent_judge(model, messages)
+        decision = await _invoke_intent_judge(model, messages, config=config)
         logger.info("inbound_intent_primary_completed", is_safe_intent=decision.is_safe_intent)
         if decision.is_safe_intent:
             return Command(

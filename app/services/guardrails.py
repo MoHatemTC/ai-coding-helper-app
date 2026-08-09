@@ -8,37 +8,16 @@ decisions without duplicating prompt/schema definitions.
 from typing import Any
 
 import structlog
-from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables.config import RunnableConfig
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from app.core.config import settings
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import build_langfuse_config
 from app.prompts.guardrails import INBOUND_INTENT_SYSTEM_PROMPT, OUTBOUND_SYSTEM_PROMPT
 from app.schemas.review import InboundIntentJudgeOutput, OutboundJudgeOutput
 from app.services.llm import llm_service
 
 logger: Any = structlog.get_logger(__name__)
-
-
-def _build_invocation_config(config: RunnableConfig | None) -> RunnableConfig:
-    """Merge langfuse tracing callbacks from the graph config into the call safely."""
-    raw_callbacks = (config or {}).get("callbacks")
-
-    if isinstance(raw_callbacks, BaseCallbackManager):
-        callbacks: list = list(raw_callbacks.handlers)
-    elif isinstance(raw_callbacks, list):
-        callbacks = list(raw_callbacks)
-    elif raw_callbacks is not None:
-        callbacks = [raw_callbacks]
-    else:
-        callbacks = []
-
-    if settings.LANGFUSE_TRACING_ENABLED and langfuse_callback_handler not in callbacks:
-        callbacks.append(langfuse_callback_handler)
-
-    return {"callbacks": callbacks} if callbacks else {}
 
 
 def _validate(decision: Any, schema: type[InboundIntentJudgeOutput] | type[OutboundJudgeOutput]) -> Any:
@@ -73,7 +52,7 @@ async def check_inbound_guardrails(
             SystemMessage(content=INBOUND_INTENT_SYSTEM_PROMPT),
             HumanMessage(content=f"User query:\n{user_query}"),
         ],
-        config=_build_invocation_config(config),
+        config=build_langfuse_config(config),
     )
     logger.info("inbound_guardrail_completed", is_safe_intent=getattr(decision, "is_safe_intent", None))
     return _validate(decision, InboundIntentJudgeOutput)
@@ -115,7 +94,7 @@ async def check_outbound_guardrails(
             SystemMessage(content=OUTBOUND_SYSTEM_PROMPT),
             HumanMessage(content=payload),
         ],
-        config=_build_invocation_config(config),
+        config=build_langfuse_config(config),
     )
     logger.info("outbound_guardrail_completed", is_safe_output=getattr(decision, "is_safe_output", None))
     return _validate(decision, OutboundJudgeOutput)

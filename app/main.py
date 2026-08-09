@@ -36,7 +36,7 @@ from app.core.middleware import (
     MetricsMiddleware,
     ProfilingMiddleware,
 )
-from app.core.observability import langfuse_init
+from app.core.observability import langfuse_flush, langfuse_init
 from app.services.database import database_service
 from app.services.memory import memory_service
 from app.services.checkpoint_cleanup import run_checkpoint_cleanup
@@ -99,6 +99,7 @@ async def lifespan(app: FastAPI):
     await agent.stop_mcp()
     await close_agents()
     logger.info("agent_resources_closed")
+    langfuse_flush()
     logger.info("application_shutdown")
 
 

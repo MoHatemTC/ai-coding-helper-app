@@ -3,7 +3,6 @@
 from typing import Any, List
 
 import structlog
-from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
@@ -11,7 +10,7 @@ from pydantic import SecretStr
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.core.config import settings
-from app.core.observability import langfuse_callback_handler
+from app.core.observability import build_langfuse_config
 from app.core.prompts import load_hint_system_prompt
 from app.schemas import GraphState
 
@@ -25,25 +24,6 @@ def _extract_message_content(message: Any) -> str:
     if isinstance(message, dict):
         return str(message.get("content", ""))
     return str(message)
-
-
-def _build_invocation_config(config: RunnableConfig | None) -> RunnableConfig:
-    """Build the invocation config with callbacks."""
-    raw_callbacks = (config or {}).get("callbacks")
-
-    if isinstance(raw_callbacks, BaseCallbackManager):
-        callbacks: list = list(raw_callbacks.handlers)
-    elif isinstance(raw_callbacks, list):
-        callbacks = list(raw_callbacks)
-    elif raw_callbacks is not None:
-        callbacks = [raw_callbacks]
-    else:
-        callbacks = []
-
-    if settings.LANGFUSE_TRACING_ENABLED and langfuse_callback_handler not in callbacks:
-        callbacks.append(langfuse_callback_handler)
-
-    return {"callbacks": callbacks} if callbacks else {}
 
 
 @retry(
@@ -78,7 +58,7 @@ async def invoke_llm_with_retry(
     logger.info("hint_llm_invocation_started", query_length=len(user_query))
     response = await llm.ainvoke(
         [("system", system_prompt), ("human", user_query)],
-        config=_build_invocation_config(config),
+        config=build_langfuse_config(config),
     )
 
     if isinstance(response, AIMessage):
