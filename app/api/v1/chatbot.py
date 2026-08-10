@@ -37,6 +37,7 @@ from app.schemas.chat import (
 from app.services.document_service import document_service
 from app.services.message import message_service
 from app.services.session_naming import maybe_name_session
+from app.utils.streaming import replay_response_chunks
 
 
 router = APIRouter()
@@ -200,6 +201,10 @@ async def chat_stream(
     ``mode`` ('reasoning' = ReAct agent, 'fast' = workflow agent), and optional
     code files. Uploaded files are split, embedded, and stored in the vector
     database before the LLM generates a response.
+
+    The response is streamed only after the graph's outbound guardrail approves
+    the full draft; the approved text is replayed in paced chunks so the client
+    still sees a live streaming UX.
     """
     agent = get_agent(_resolve_mode(mode))
     try:
@@ -224,15 +229,29 @@ async def chat_stream(
             """Generate streaming events."""
             try:
                 with llm_stream_duration_seconds.labels(model=settings.HINT_LLM_MODEL).time():
-                    async for chunk in agent.get_stream_response(
+                    # Run the full turn non-streaming. The outbound guardrail and
+                    # its regenerate loop run inside the graph, so the returned
+                    # text is already the final, safety-approved response. Nothing
+                    # is streamed to the client until this completes.
+                    messages = await agent.get_response(
                         user_message,
                         session.id,
                         user_id=str(session.user_id),
                         username=session.username,
                         pending_files=pending_files,
-                    ):
-                        response = StreamResponse(content=chunk, done=False)
-                        yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
+                    )
+                    final_text = messages[-1].content if messages else ""
+
+                if not final_text:
+                    final_response = StreamResponse(content="", done=True)
+                    yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
+                    return
+
+                # Replay the approved response as a simulated stream so the UX
+                # still feels live even though every token passed the guardrail.
+                async for chunk in replay_response_chunks(final_text):
+                    response = StreamResponse(content=chunk, done=False)
+                    yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
 
                 final_response = StreamResponse(content="", done=True)
                 yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"

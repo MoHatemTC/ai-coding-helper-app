@@ -165,6 +165,10 @@ class Settings:
         self.LLM_TOTAL_TIMEOUT = int(os.getenv("LLM_TOTAL_TIMEOUT", "60"))
         self.MODEL_MAX_CONTEXT_WINDOW = int(os.getenv("MODEL_MAX_CONTEXT_WINDOW", "250000"))
 
+        # Simulated streaming replay (guardrail-gated stream endpoint)
+        self.STREAM_REPLAY_CHUNK_DELAY_MS = int(os.getenv("STREAM_REPLAY_CHUNK_DELAY_MS", "70"))
+        self.STREAM_REPLAY_MAX_DURATION_MS = int(os.getenv("STREAM_REPLAY_MAX_DURATION_MS", "5000"))
+
         # Long term memory Configuration
         self.MEMORY_LLM_MODEL = os.getenv("MEMORY_LLM_MODEL", self.LITE_LLM_MODEL)
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
