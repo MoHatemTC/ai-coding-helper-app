@@ -33,7 +33,7 @@
                 "input": "public"
               }
             ],
-            "styles": ["src/styles.scss", "node_modules/prismjs/themes/prism-tomorrow.css"]
+            "styles": ["src/styles.scss", "node_modules/prismjs/themes/prism-ghcolors.css"]
           },
           "configurations": {
             "production": {

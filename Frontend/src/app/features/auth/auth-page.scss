@@ -3,7 +3,7 @@
   place-items: center;
   height: 100%;
   padding: 24px;
-  background: radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--mat-sys-primary) 18%, transparent), transparent 60%),
+  background: radial-gradient(1200px 600px at 50% -10%, color-mix(in srgb, var(--app-brand-blue) 14%, transparent), transparent 60%),
     var(--app-bg);
 }
 
@@ -15,9 +15,9 @@
   gap: 20px;
   padding: 32px;
   border-radius: 16px;
-  background: var(--app-surface);
+  background: var(--app-surface-raised);
   border: 1px solid var(--app-border);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 40%);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 10%);
 }
 
 .brand {
@@ -28,13 +28,13 @@
   font-size: 40px;
   width: 40px;
   height: 40px;
-  color: var(--mat-sys-primary);
+  color: var(--app-brand-blue);
 }
 
 .brand-title {
   margin: 8px 0 4px;
   font-size: 22px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--app-text);
 }
 
