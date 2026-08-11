@@ -23,6 +23,7 @@ def langfuse_init():
         public_key=settings.LANGFUSE_PUBLIC_KEY,
         secret_key=settings.LANGFUSE_SECRET_KEY,
         host=settings.LANGFUSE_HOST,
+        timeout=settings.LANGFUSE_TIMEOUT,
         environment=settings.ENVIRONMENT.value,
         debug=settings.LANGFUSE_DEBUG,
     )

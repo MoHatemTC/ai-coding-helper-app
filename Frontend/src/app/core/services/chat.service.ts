@@ -19,12 +19,15 @@ const MODE_KEY = 'ai_chat_mode';
 const AGENT_MODE_KEY = 'ai_agent_mode';
 
 /**
- * The backend augments user messages that carry file attachments with a
- * trailing "Uploaded files:" summary so the LLM can read the metadata.
- * Strip it before rendering; the file chips are shown separately.
+ * The backend augments user messages with a trailing "Uploaded files:" summary
+ * (for attachments) or a "Repo {owner}/{repo} files:" listing (for ingested
+ * GitHub repos). Strip these before rendering; attachments are shown as chips
+ * and repo files are not shown at all.
  */
 export function stripUploadedFilesSuffix(content: string): string {
-  const match = content.match(/\n\nUploaded files:\n(?: {2}- .*?(?:\n|$))+$/);
+  const match = content.match(
+    /\n\n(?:Uploaded files:|Repo [\w.-]+\/[\w.-]+ files:)\n(?: {2}- .*?(?:\n|$))+$/,
+  );
   return match ? content.slice(0, match.index) : content;
 }
 

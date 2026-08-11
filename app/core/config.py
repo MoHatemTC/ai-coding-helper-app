@@ -150,6 +150,7 @@ class Settings:
             "t",
             "yes",
         )
+        self.LANGFUSE_TIMEOUT = int(os.getenv("LANGFUSE_TIMEOUT", "10"))
 
         # LangGraph Configuration
         self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
@@ -161,7 +162,7 @@ class Settings:
         self.SESSION_NAMING_MODEL = os.getenv("SESSION_NAMING_MODEL", self.LITE_LLM_MODEL)
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
-        self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "3"))
+        self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "5"))
         self.LLM_TOTAL_TIMEOUT = int(os.getenv("LLM_TOTAL_TIMEOUT", "60"))
         self.MODEL_MAX_CONTEXT_WINDOW = int(os.getenv("MODEL_MAX_CONTEXT_WINDOW", "250000"))
 
@@ -236,6 +237,10 @@ class Settings:
                 ".dart",
             ],
         )
+        # GitHub repo ingestion configuration (cloned transiently for chunking)
+        self.REPO_CLONE_TIMEOUT_SECONDS = int(os.getenv("REPO_CLONE_TIMEOUT_SECONDS", "120"))
+        self.REPO_MAX_FILES = int(os.getenv("REPO_MAX_FILES", "500"))
+        self.REPO_MAX_TOTAL_BYTES = int(os.getenv("REPO_MAX_TOTAL_BYTES", str(100 * 1024 * 1024)))  # 100MB default
         self.TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
         # Cosine-distance cutoff (pgvector <=>). Chunks farther than this are
         # not returned, so retrieval returns only relevant results instead of a
