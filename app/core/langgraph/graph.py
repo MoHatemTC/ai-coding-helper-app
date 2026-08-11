@@ -40,6 +40,7 @@ from psycopg.rows import (
 )
 from psycopg_pool import AsyncConnectionPool
 
+from app.core.cache import StateSnapshotCache
 from app.core.config import (
     Environment,
     settings,
@@ -89,6 +90,10 @@ class LangGraphAgent:
         """Initialize the LangGraph Agent with necessary components."""
         self._connection_pool: Optional[PostgresConnPool] = None
         self._graph: Optional[CompiledStateGraph] = None
+        self._state_cache = StateSnapshotCache(
+            default_ttl=settings.STATE_CACHE_TTL_SECONDS,
+            max_entries=settings.CACHE_MAX_ENTRIES,
+        )
         logger.info(
             "langgraph_hint_agent_initialized",
             model=settings.HINT_LLM_MODEL,
@@ -373,6 +378,42 @@ class LangGraphAgent:
         return self._graph
 
     # ------------------------------------------------------------------
+    # State cache helpers
+    # ------------------------------------------------------------------
+    async def _get_cached_state(
+        self, graph: CompiledStateGraph, config: RunnableConfig, session_id: str
+    ) -> StateSnapshot:
+        """Return the state snapshot for a session, serving from cache first.
+
+        Args:
+            graph: The compiled graph.
+            config: The run configuration.
+            session_id: The session/thread ID.
+
+        Returns:
+            The state snapshot (from cache when present, else fetched and cached).
+        """
+        cached = self._state_cache.get(session_id)
+        if cached is not None:
+            return cached
+        state = await graph.aget_state(config)
+        self._state_cache.set(session_id, state)
+        return state
+
+    def _refresh_cached_state(self, state: StateSnapshot, session_id: str) -> StateSnapshot:
+        """Store a freshly fetched state snapshot in the cache.
+
+        Args:
+            state: The freshly fetched state snapshot.
+            session_id: The session/thread ID.
+
+        Returns:
+            The same state snapshot, now cached.
+        """
+        self._state_cache.set(session_id, state)
+        return state
+
+    # ------------------------------------------------------------------
     # API Entrypoints
     # ------------------------------------------------------------------
     async def get_response(
@@ -388,7 +429,7 @@ class LangGraphAgent:
         config = self._build_config(session_id, user_id, username)
 
         try:
-            state = await graph.aget_state(config)
+            state = await self._get_cached_state(graph, config, session_id)
 
             if state.next:
                 logger.info("resuming_interrupted_graph", session_id=session_id, next_nodes=state.next)
@@ -397,7 +438,7 @@ class LangGraphAgent:
                 graph_input = self._build_graph_input(message, pending_files)
                 response = await graph.ainvoke(input=graph_input, config=config)
 
-            state = await graph.aget_state(config)
+            state = self._refresh_cached_state(await graph.aget_state(config), session_id)
             if state.next:
                 interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
                 return [Message(role="assistant", content=str(interrupt_value))]
@@ -414,11 +455,12 @@ class LangGraphAgent:
             ]
             return [assistant_msgs[-1]] if assistant_msgs else []
         except GraphInterrupt:
-            state = await graph.aget_state(config)
+            state = self._refresh_cached_state(await graph.aget_state(config), session_id)
             interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
             return [Message(role="assistant", content=str(interrupt_value))]
         except Exception as e:
             logger.exception("get_response_failed", error=str(e), session_id=session_id)
+            self._state_cache.delete(session_id)
             raise
 
     async def get_stream_response(
@@ -434,7 +476,7 @@ class LangGraphAgent:
         config = self._build_config(session_id, user_id, username)
 
         try:
-            state = await graph.aget_state(config)
+            state = await self._get_cached_state(graph, config, session_id)
 
             if state.next:
                 logger.info("resuming_interrupted_graph_stream", session_id=session_id, next_nodes=state.next)
@@ -456,23 +498,24 @@ class LangGraphAgent:
                 if text:
                     yield text
 
-            state = await graph.aget_state(config)
+            state = self._refresh_cached_state(await graph.aget_state(config), session_id)
             if state.next:
                 interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
                 yield str(interrupt_value)
         except GraphInterrupt:
-            state = await graph.aget_state(config)
+            state = self._refresh_cached_state(await graph.aget_state(config), session_id)
             interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
             yield str(interrupt_value)
         except Exception as stream_error:
             logger.exception("stream_processing_failed", error=str(stream_error), session_id=session_id)
+            self._state_cache.delete(session_id)
             raise stream_error
 
     async def get_chat_history(self, session_id: str) -> list[Message]:
         """Get the chat history for a given thread ID."""
         graph = await self._get_graph()
         config: RunnableConfig = {"configurable": {"thread_id": session_id}}
-        state: StateSnapshot = await graph.aget_state(config=config)
+        state: StateSnapshot = await self._get_cached_state(graph, config, session_id)
 
         if state.values:
             messages = state.values.get("messages", [])
@@ -494,6 +537,8 @@ class LangGraphAgent:
             conn_pool = await self._get_connection_pool()
             if conn_pool is None:
                 raise RuntimeError("connection pool unavailable; cannot clear chat history")
+
+            self._state_cache.delete(session_id)
 
             async with conn_pool.connection() as conn:
                 async with conn.pipeline():

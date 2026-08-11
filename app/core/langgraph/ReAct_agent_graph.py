@@ -23,11 +23,13 @@ from langchain_core.runnables.config import RunnableConfig
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.errors import GraphInterrupt
 from langgraph.graph import (
     END,
     StateGraph,
 )
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import StateSnapshot
 from psycopg import (
     AsyncConnection,
     InterfaceError,
@@ -41,6 +43,7 @@ from psycopg.rows import (
 from psycopg_pool import AsyncConnectionPool
 from pydantic import SecretStr
 
+from app.core.cache import StateSnapshotCache
 from app.core.config import (
     Environment,
     settings,
@@ -107,6 +110,10 @@ class ReActAgent:
         self._connection_pool: Optional[PostgresConnPool] = None
         self._graph: Optional[CompiledStateGraph] = None
         self._agent: Optional[CompiledStateGraph] = None
+        self._state_cache = StateSnapshotCache(
+            default_ttl=settings.STATE_CACHE_TTL_SECONDS,
+            max_entries=settings.CACHE_MAX_ENTRIES,
+        )
         self.mcp_tools = MCPToolConnection()
         logger.info(
             "react_agent_initialized",
@@ -269,6 +276,7 @@ class ReActAgent:
         """
         self._graph = None
         self._agent = None
+        self._state_cache.clear()
         if self._connection_pool is not None:
             try:
                 await self._connection_pool.close()
@@ -278,19 +286,53 @@ class ReActAgent:
         await self.mcp_tools.restart()
         logger.info("agent_graph_reset")
 
-    async def _prepare_turn(
-        self,
-        message: Message,
-        session_id: str,
-        user_id: Optional[str],
-        username: Optional[str],
-        pending_files: Optional[list],
-    ) -> tuple[CompiledStateGraph, RunnableConfig, dict]:
-        """Build the config and graph input for one conversation turn."""
-        graph = await self._get_graph()
+    async def _get_cached_state(
+        self, graph: CompiledStateGraph, config: RunnableConfig, session_id: str
+    ) -> StateSnapshot:
+        """Return the state snapshot for a session, serving from cache first.
+
+        Args:
+            graph: The compiled graph.
+            config: The run configuration.
+            session_id: The session/thread ID.
+
+        Returns:
+            The state snapshot (from cache when present, else fetched and cached).
+        """
+        cached = self._state_cache.get(session_id)
+        if cached is not None:
+            return cached
+        state = await graph.aget_state(config)
+        self._state_cache.set(session_id, state)
+        return state
+
+    def _refresh_cached_state(self, state: StateSnapshot, session_id: str) -> StateSnapshot:
+        """Store a freshly fetched state snapshot in the cache.
+
+        Args:
+            state: The freshly fetched state snapshot.
+            session_id: The session/thread ID.
+
+        Returns:
+            The same state snapshot, now cached.
+        """
+        self._state_cache.set(session_id, state)
+        return state
+
+    def _build_config(self, session_id: str, user_id: Optional[str], username: Optional[str]) -> RunnableConfig:
+        """Build the run configuration for a conversation turn.
+
+        Args:
+            session_id: The session/thread ID.
+            user_id: The user ID, if available.
+            username: The display name of the user.
+
+        Returns:
+            The RunnableConfig for the turn.
+        """
         handler = new_langfuse_callback_handler()
         callbacks: list[BaseCallbackHandler] = [handler] if handler else []
-        config: RunnableConfig = {
+        return {
             "configurable": {"thread_id": session_id},
             "callbacks": callbacks,
             "metadata": {
@@ -304,12 +346,24 @@ class ReActAgent:
             },
         }
 
+    async def _prepare_turn(
+        self,
+        message: Message,
+        session_id: str,
+        user_id: Optional[str],
+        username: Optional[str],
+        pending_files: Optional[list],
+    ) -> tuple[CompiledStateGraph, RunnableConfig, dict]:
+        """Build the config and graph input for one conversation turn."""
+        graph = await self._get_graph()
+        config = self._build_config(session_id, user_id, username)
+
         set_session_id(session_id)
         if user_id:
             set_user_id(int(user_id))
 
         state, relevant_memory, skill_profile = await asyncio.gather(
-            graph.aget_state(config),
+            self._get_cached_state(graph, config, session_id),
             memory_service.search(user_id, message.content),
             skill_profile_service.render_for_prompt_async(int(user_id)) if user_id else asyncio.sleep(0, result=""),
         )
@@ -371,18 +425,23 @@ class ReActAgent:
 
             response = await graph.ainvoke(graph_input, config=config)
 
+            state = await graph.aget_state(config)
+            self._refresh_cached_state(state, session_id)
+
             final_response = response.get("final_response", "") or _last_ai_message_content(
                 response.get("messages", [])
             )
             return [Message(role="assistant", content=final_response)] if final_response else []
         except (OperationalError, InterfaceError) as e:
             logger.warning("get_response_db_error", error=str(e), session_id=session_id)
+            self._state_cache.delete(session_id)
             await self.reset_graph()
             raise AgentDatabaseUnavailableError(f"database unavailable during agent run: {e}") from e
         except AgentDatabaseUnavailableError:
             raise
         except Exception as e:
             logger.exception("get_response_failed", error=str(e), session_id=session_id)
+            self._state_cache.delete(session_id)
             raise
 
     async def get_stream_response(
@@ -414,10 +473,10 @@ class ReActAgent:
         Yields:
             str: Content tokens of the agent's response, as they are produced.
         """
+        graph = await self._get_graph()
+        config = self._build_config(session_id, user_id, username)
         try:
-            graph, config, graph_input = await self._prepare_turn(
-                message, session_id, user_id, username, pending_files
-            )
+            _, _, graph_input = await self._prepare_turn(message, session_id, user_id, username, pending_files)
 
             async for event in graph.astream(graph_input, config=config, stream_mode="messages", subgraphs=True):
                 if not isinstance(event, tuple) or len(event) != 2:
@@ -430,12 +489,21 @@ class ReActAgent:
                 content = message_chunk.content
                 if isinstance(content, str) and content:
                     yield content
+            state = await graph.aget_state(config)
+            self._refresh_cached_state(state, session_id)
+        except GraphInterrupt:
+            state = await graph.aget_state(config)
+            self._refresh_cached_state(state, session_id)
+            interrupt_value = state.tasks[0].interrupts[0].value if state.tasks else "Waiting for input."
+            yield str(interrupt_value)
         except (OperationalError, InterfaceError) as e:
             logger.warning("get_stream_response_db_error", error=str(e), session_id=session_id)
+            self._state_cache.delete(session_id)
             await self.reset_graph()
             raise AgentDatabaseUnavailableError(f"database unavailable during agent stream: {e}") from e
         except Exception as e:
             logger.exception("stream_processing_failed", error=str(e), session_id=session_id)
+            self._state_cache.delete(session_id)
             raise
 
     async def clear_chat_history(self, session_id: str) -> None:
@@ -444,6 +512,8 @@ class ReActAgent:
             conn_pool = await self._get_connection_pool()
             if conn_pool is None:
                 raise RuntimeError("connection pool unavailable; cannot clear chat history")
+
+            self._state_cache.delete(session_id)
 
             async with conn_pool.connection() as conn:
                 async with conn.pipeline():

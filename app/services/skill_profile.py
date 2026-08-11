@@ -21,6 +21,7 @@ from langchain_core.messages import HumanMessage
 from sqlmodel import Session, select
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.core.cache import cache_key, cache_service
 from app.core.config import settings
 from app.core.logging import logger
 from app.core.prompts.skill_profile import SKILL_PROFILE_DELTA_PROMPT
@@ -28,6 +29,9 @@ from app.models.skill_profile import SkillProfileEntry
 from app.schemas.skill_profile import ProfileDelta, SkillAssessment, SkillCategory
 from app.services.database import database_service
 from app.services.llm.registry import LLMRegistry
+
+# Fixed render order — independent of DB insertion order or category enum order.
+_SKILL_PROFILE_CACHE_TTL_SECONDS = 300
 
 # Fixed render order — independent of DB insertion order or category enum order.
 _CATEGORY_DISPLAY_ORDER = [
@@ -230,8 +234,23 @@ class SkillProfileService:
         return "\n".join(lines)
 
     async def render_for_prompt_async(self, user_id: int) -> str:
-        """Async wrapper — calls render_for_prompt in a thread so it doesn't block the event loop."""
-        return await asyncio.to_thread(self.render_for_prompt, user_id)
+        """Async wrapper with caching — serves the cached profile when fresh.
+
+        The render is only cached when it succeeds (non-empty), so cache misses
+        and failures always fall through to a fresh DB read.
+        """
+        key = cache_key("skill_profile", str(user_id))
+        cached = await cache_service.get(key)
+        if cached is not None:
+            return cached
+        rendered = await asyncio.to_thread(self.render_for_prompt, user_id)
+        if rendered:
+            await cache_service.set(key, rendered, ttl=_SKILL_PROFILE_CACHE_TTL_SECONDS)
+        return rendered
+
+    async def _invalidate_cache(self, user_id: int) -> None:
+        """Drop the cached rendered profile for a user after any profile change."""
+        await cache_service.delete(cache_key("skill_profile", str(user_id)))
 
     # ── ACE pipeline (2 phases) ──────────────────────────────────────
 
@@ -277,6 +296,7 @@ class SkillProfileService:
             delta = await self.propose_delta(user_id, conversation)
             if delta.upsert or delta.remove:
                 await asyncio.to_thread(self.curate, user_id, delta)
+                await self._invalidate_cache(user_id)
             rendered = await asyncio.to_thread(self.render_for_prompt, user_id)
             logger.info(
                 "skill_profile_update_completed",
