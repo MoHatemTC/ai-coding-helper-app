@@ -8,19 +8,18 @@ from app.schemas.chat import (
     Message,
     StreamResponse,
 )
+from app.schemas.document import FileAttachment
 from app.schemas.graph import GraphState
 from app.schemas.review import Finding
-from app.schemas.skill_profile import SkillProfile
-
 
 __all__ = [
     "Token",
     "BaseResponse",
     "ChatRequest",
     "ChatResponse",
+    "FileAttachment",
+    "Finding",
+    "GraphState",
     "Message",
     "StreamResponse",
-    "GraphState",
-    "Finding",
-    "SkillProfile",
 ]

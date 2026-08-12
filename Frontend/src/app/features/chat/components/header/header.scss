@@ -1,0 +1,117 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface);
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.header-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--app-brand-blue) 14%, transparent);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--app-brand-blue);
+  }
+}
+
+.title-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  min-width: 0;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--app-surface-hover);
+  }
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--app-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-caret {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--app-text-faint);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mode-toggle {
+  border-color: var(--app-border);
+  overflow: hidden;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--app-text-muted);
+    transition: color 0.15s ease;
+  }
+}
+
+:host ::ng-deep .mode-toggle {
+  .mat-button-toggle-checked {
+    background-color: var(--app-brand-blue);
+
+    .mat-button-toggle-label-content {
+      color: #fff;
+    }
+
+    mat-icon {
+      color: #fff;
+    }
+  }
+}
+
+.clear-btn {
+  color: var(--app-text-muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mat-sys-error) 12%, transparent);
+    color: var(--mat-sys-error);
+  }
+}

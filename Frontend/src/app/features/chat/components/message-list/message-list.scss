@@ -1,0 +1,76 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.message-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.messages {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 24px 8px;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-controls {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 12px;
+}
+
+.welcome {
+  margin: auto;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--app-text-muted);
+
+  h2 {
+    margin: 0 0 10px;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--app-text);
+  }
+
+  p {
+    margin: 0 auto;
+    max-width: 440px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--app-text-muted);
+  }
+}
+
+.welcome-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 42%,
+    color-mix(in srgb, var(--app-brand-blue) 24%, transparent),
+    transparent 72%
+  );
+}
+
+.welcome-icon {
+  font-size: 40px;
+  width: 40px;
+  height: 40px;
+  color: var(--app-brand-blue);
+}
+
+.scroll-sentinel {
+  height: 16px;
+}

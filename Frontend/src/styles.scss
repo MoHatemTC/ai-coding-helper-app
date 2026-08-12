@@ -1,0 +1,76 @@
+@use '@angular/material' as mat;
+
+// Light theme, branded around a confident blue accent.
+html {
+  height: 100%;
+
+  color-scheme: light;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$blue-palette,
+        tertiary: mat.$azure-palette,
+      ),
+      typography: Quicksand,
+      density: 0,
+    )
+  );
+}
+
+// Application-level design tokens for the chat surfaces.
+:root {
+  --app-bg: #f5f8ff;
+  --app-surface: #eef2fc;
+  --app-surface-raised: #ffffff;
+  --app-surface-hover: #e4eafb;
+  --app-border: #dce3f5;
+  --app-text: #14171f;
+  --app-text-muted: #5b6472;
+  --app-text-faint: #9aa2af;
+  --app-accent: var(--mat-sys-primary);
+  --app-brand-blue: #2f6feb;
+  --app-brand-blue-strong: #1f4fc4;
+  --app-sidebar-width: 288px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family: Quicksand, 'Helvetica Neue', sans-serif;
+  overflow: hidden;
+}
+
+// Shared scrollbar styling for chat panes.
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-border) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--app-border);
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+// Markdown + Prism styling lives inside the bubble component scope.

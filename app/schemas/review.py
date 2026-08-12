@@ -22,7 +22,7 @@ class InboundIntentJudgeOutput(BaseModel):
     is_safe_intent: bool = Field(
         description="True if the user query is safe, on-topic, and not attempting full solution extraction."
     )
-    trigger_reason: InboundTriggerReason | None = Field(
+    inbound_trigger_reason: InboundTriggerReason | None = Field(
         default=None, description="The specific category triggering a block if is_safe_intent is False."
     )
     constructive_redirect: str | None = Field(

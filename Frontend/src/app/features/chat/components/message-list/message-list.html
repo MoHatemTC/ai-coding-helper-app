@@ -1,0 +1,35 @@
+<div class="message-list app-scrollbar" #scroll (scroll)="onScroll()">
+  <div class="messages">
+    @if (hasMore() && messages().length > 0) {
+      <div class="history-controls">
+        @if (loadingHistory()) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <button mat-stroked-button (click)="loadEarlier()">
+            <mat-icon>expand_less</mat-icon>
+            Load earlier messages
+          </button>
+        }
+      </div>
+    }
+
+    @if (messages().length === 0 && !busy()) {
+      <div class="welcome">
+        <div class="welcome-icon-wrap">
+          <mat-icon class="welcome-icon">code</mat-icon>
+        </div>
+        <h2>How can I help with your code?</h2>
+        <p>
+          Ask questions, paste code, or attach source files. I can review code, explain
+          errors, suggest fixes and answer programming questions with file-aware context.
+        </p>
+      </div>
+    }
+
+    @for (message of messages(); track $index) {
+      <app-message-bubble [message]="message" />
+    }
+
+    <div class="scroll-sentinel"></div>
+  </div>
+</div>

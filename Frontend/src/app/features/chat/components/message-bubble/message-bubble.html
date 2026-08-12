@@ -1,0 +1,78 @@
+<div class="bubble-row" [class.user]="isUser()" [class.assistant]="!isUser()">
+  @if (isUser()) {
+    <div class="bubble user-bubble">
+      <div class="user-content">{{ message().content }}</div>
+      @if (message().files?.length) {
+        <div class="file-chips">
+          @for (file of message().files!; track file.file_id || $index) {
+            <button
+              class="file-chip"
+              [class.downloadable]="!!file.stored_path"
+              (click)="download(file)"
+              [attr.disabled]="file.stored_path ? null : true"
+            >
+              <mat-icon>attach_file</mat-icon>
+              <span class="file-name">{{ file.original_name }}</span>
+              @if (file.language) {
+                <span class="file-lang">{{ file.language }}</span>
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="bubble assistant-bubble">
+      @if (message().error) {
+        <div class="error-block">
+          <mat-icon>error_outline</mat-icon>
+          <span>There was a problem generating this response.</span>
+        </div>
+      } @else if (message().streaming) {
+        @if (activities().length) {
+          <div class="agent-activity">
+            @if (currentActivity(); as activity) {
+              <div class="activity-row" [class.active]="!message().content">
+                <mat-icon>{{ activityView(activity).icon }}</mat-icon>
+                <span class="activity-label">{{ activityView(activity).label }}</span>
+                @if (!message().content) {
+                  <span class="activity-dots"><span></span><span></span><span></span></span>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="typing">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        }
+        @if (message().content) {
+          <markdown [data]="message().content" class="markdown-body" />
+        }
+      } @else {
+        <markdown [data]="message().content" class="markdown-body" />
+      }
+
+      @if (message().content && !message().streaming) {
+        <div class="bubble-signature">
+          <mat-icon>cloud</mat-icon>
+        </div>
+      }
+
+      @if (message().content && !message().streaming) {
+        <div class="bubble-actions">
+          <button
+            mat-icon-button
+            matTooltip="Copy response"
+            aria-label="Copy response"
+            (click)="copy()"
+          >
+            <mat-icon>{{ copied() ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+      }
+    </div>
+  }
+</div>

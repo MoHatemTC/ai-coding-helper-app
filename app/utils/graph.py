@@ -1,22 +1,53 @@
 """This file contains the graph utilities for the application."""
 
+from typing import Any
+
 import tiktoken
 from langchain_core.messages import BaseMessage
-from langchain_core.messages import trim_messages as _trim_messages
 
 from app.core.config import settings
 from app.core.logging import logger
-from app.schemas import Message
 
-# Cache tiktoken encoding at module level — thread-safe and reusable
-try:
-    _TIKTOKEN_ENCODING = tiktoken.encoding_for_model(settings.DEFAULT_LLM_MODEL)
-except KeyError:
-    _TIKTOKEN_ENCODING = tiktoken.get_encoding("cl100k_base")
+_TIKTOKEN_ENCODING: Any | None = None
+_TOKENIZER_INITIALIZATION_FAILED = False
+
+
+def _get_token_encoding() -> Any | None:
+    """Return a cached tokenizer without blocking application startup offline."""
+    global _TIKTOKEN_ENCODING, _TOKENIZER_INITIALIZATION_FAILED
+
+    if _TIKTOKEN_ENCODING is not None:
+        return _TIKTOKEN_ENCODING
+    if _TOKENIZER_INITIALIZATION_FAILED:
+        return None
+
+    try:
+        _TIKTOKEN_ENCODING = tiktoken.encoding_for_model(settings.DEFAULT_LLM_MODEL)
+    except KeyError:
+        try:
+            _TIKTOKEN_ENCODING = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            _TOKENIZER_INITIALIZATION_FAILED = True
+            logger.exception("tokenizer_initialization_failed", model=settings.DEFAULT_LLM_MODEL)
+            return None
+    except Exception:
+        _TOKENIZER_INITIALIZATION_FAILED = True
+        logger.exception("tokenizer_initialization_failed", model=settings.DEFAULT_LLM_MODEL)
+        return None
+
+    return _TIKTOKEN_ENCODING
+
+
+def _count_text_tokens(value: str, encoding: Any | None) -> int:
+    """Count text tokens, using a conservative character estimate as fallback."""
+    if encoding is None:
+        return max(1, len(value) // 4)
+    return len(encoding.encode(value))
 
 
 def _count_tokens_tiktoken(messages: list) -> int:
     """Count tokens locally using tiktoken — no API call needed."""
+    encoding = _get_token_encoding()
     num_tokens = 0
     for message in messages:
         # Every message has overhead tokens for role/name
@@ -24,31 +55,43 @@ def _count_tokens_tiktoken(messages: list) -> int:
         if isinstance(message, dict):
             for _, value in message.items():
                 if isinstance(value, str):
-                    num_tokens += len(_TIKTOKEN_ENCODING.encode(value))
+                    num_tokens += _count_text_tokens(value, encoding)
         elif isinstance(message, BaseMessage):
             content = message.content
             if isinstance(content, str):
-                num_tokens += len(_TIKTOKEN_ENCODING.encode(content))
+                num_tokens += _count_text_tokens(content, encoding)
             elif isinstance(content, list):
                 for block in content:
                     if isinstance(block, str):
-                        num_tokens += len(_TIKTOKEN_ENCODING.encode(block))
+                        num_tokens += _count_text_tokens(block, encoding)
                     elif isinstance(block, dict) and "text" in block:
-                        num_tokens += len(_TIKTOKEN_ENCODING.encode(block["text"]))
+                        num_tokens += _count_text_tokens(block["text"], encoding)
     num_tokens += 2  # every reply is primed with assistant
     return num_tokens
 
 
-def dump_messages(messages: list[Message]) -> list[dict]:
+def dump_messages(messages: list) -> list[dict]:
     """Dump the messages to a list of dictionaries.
 
     Args:
-        messages (list[Message]): The messages to dump.
+        messages: The messages to dump (Pydantic models, LangChain messages, or dicts).
 
     Returns:
         list[dict]: The dumped messages.
     """
-    return [message.model_dump() for message in messages]
+    result = []
+    for message in messages:
+        if isinstance(message, dict):
+            result.append(message)
+        elif hasattr(message, "model_dump"):
+            result.append(message.model_dump())
+        elif hasattr(message, "dict"):
+            result.append(message.dict())
+        else:
+            result.append(
+                {"role": getattr(message, "type", "unknown"), "content": getattr(message, "content", str(message))}
+            )
+    return result
 
 
 def extract_text_content(content: str | list) -> str:
@@ -100,39 +143,3 @@ def process_llm_response(response: BaseMessage) -> BaseMessage:
             extracted_length=len(response.content),
         )
     return response
-
-
-def prepare_messages(messages: list[Message], system_prompt: str) -> list[Message]:
-    """Prepare the messages for the LLM.
-
-    Args:
-        messages (list[Message]): The messages to prepare.
-        system_prompt (str): The system prompt to use.
-
-    Returns:
-        list[Message]: The prepared messages.
-    """
-    try:
-        trimmed_messages = _trim_messages(
-            dump_messages(messages),
-            strategy="last",
-            token_counter=_count_tokens_tiktoken,
-            max_tokens=settings.MAX_TOKENS,
-            start_on="human",
-            include_system=False,
-            allow_partial=False,
-        )
-    except ValueError as e:
-        # Handle unrecognized content blocks (e.g., reasoning blocks from GPT-5)
-        if "Unrecognized content block type" in str(e):
-            logger.warning(
-                "token_counting_failed_skipping_trim",
-                error=str(e),
-                message_count=len(messages),
-            )
-            # Skip trimming and return all messages
-            trimmed_messages = messages
-        else:
-            raise
-
-    return [Message(role="system", content=system_prompt)] + trimmed_messages

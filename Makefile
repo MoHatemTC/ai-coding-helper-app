@@ -48,6 +48,12 @@ _serve:
 	@$(call run_with_env,./.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop uvloop)
 
 # ---------------------------------------------------------------------------
+# MCP server (standalone, stdio)
+# ---------------------------------------------------------------------------
+mcp:
+	@$(call run_with_env,uv run python -m mcp_server.server)
+
+# ---------------------------------------------------------------------------
 # Database migrations
 # ---------------------------------------------------------------------------
 migrate:
@@ -168,6 +174,11 @@ help:
 	@echo "  staging              Staging server"
 	@echo "  prod                 Production server"
 	@echo ""
+	@echo "MCP server:"
+	@echo "  mcp                  Run MCP server over stdio"
+	@echo "  mcp-sse              Run MCP server over SSE (port 8100)"
+	@echo "  mcp-http             Run MCP server over Streamable HTTP (port 8100)"
+	@echo ""
 	@echo "Database:"
 	@echo "  migrate              Run migrations to latest (default ENV=development)"
 	@echo "  migration MSG=...    Generate migration from model changes"
@@ -205,6 +216,7 @@ help:
 	@echo "  clean                Remove .venv, __pycache__, .pytest_cache"
 
 .PHONY: install dev staging prod _serve \
+        mcp mcp-sse mcp-http \
         migrate migration migrate-downgrade migrate-history \
         eval eval-quick eval-no-report \
         lint format typecheck check pre-commit pre-commit-update \

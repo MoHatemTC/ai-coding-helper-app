@@ -1,182 +1,151 @@
-"""Async tests for sequential inbound DLP and intent guardrails."""
+"""Async tests for sequential inbound secret redaction and intent guardrails."""
 
+import asyncio
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from langchain_core.messages import HumanMessage
 
-from app.core.langgraph.nodes.inbound_first_stage import inbound_dlp_node
+from app.core.langgraph.nodes.inbound_first_stage import secret_guardrail_node
 from app.core.langgraph.nodes.inbound_intent import inbound_intent_node
+from app.schemas import GraphState
 from app.schemas.review import InboundIntentJudgeOutput, InboundTriggerReason
 
 
-class MockSuccessJudgeClient:
-    """A structured LLM mock that allows the inbound request."""
-
-    def with_structured_output(self, _schema: type[InboundIntentJudgeOutput]) -> "MockSuccessJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> InboundIntentJudgeOutput:
-        """Return a safe intent decision without a network call."""
-        return InboundIntentJudgeOutput(is_safe_intent=True)
+def _state_with_query(query: str) -> GraphState:
+    """Build a GraphState carrying a single human message."""
+    return GraphState(messages=[HumanMessage(content=query)])
 
 
-class MockBlockJudgeClient:
-    """A structured LLM mock that blocks solution extraction."""
-
-    def with_structured_output(self, _schema: type[InboundIntentJudgeOutput]) -> "MockBlockJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> InboundIntentJudgeOutput:
-        """Return a solution-extraction decision without a network call."""
-        return InboundIntentJudgeOutput(
-            is_safe_intent=False,
-            inbound_trigger_reason=InboundTriggerReason.SOLUTION_EXTRACTION,
-            constructive_redirect="Share your current attempt and I can help you improve it.",
-        )
-
-
-class MockFailingJudgeClient:
-    """A structured LLM mock that raises an evaluator error."""
-
-    def with_structured_output(self, _schema: type[InboundIntentJudgeOutput]) -> "MockFailingJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> InboundIntentJudgeOutput:
-        """Raise an error so the node exercises its fallback client."""
-        raise RuntimeError("intent judge unavailable")
-
-
-class MockOffTopicJudgeClient:
-    """A structured LLM mock that blocks off-topic requests."""
-
-    def with_structured_output(self, _schema: type[InboundIntentJudgeOutput]) -> "MockOffTopicJudgeClient":
-        """Return this mock as a structured-output runnable."""
-        return self
-
-    async def ainvoke(self, _messages: Any) -> InboundIntentJudgeOutput:
-        """Return an off-topic decision without a network call."""
-        return InboundIntentJudgeOutput(
-            is_safe_intent=False,
-            inbound_trigger_reason=InboundTriggerReason.OFF_TOPIC,
-            constructive_redirect="Please keep your question focused on software engineering.",
-        )
-
-
-async def run_pipeline(state: dict[str, Any], primary_client: Any, fallback_client: Any) -> dict[str, Any]:
-    """Run DLP first and judge sanitized input only when DLP passes."""
-    dlp_update = await inbound_dlp_node(state)
-    pipeline_state = {**state, **dlp_update}
-    if not dlp_update["is_safe_sensitive"]:
-        return pipeline_state
-
-    intent_update = await inbound_intent_node(pipeline_state, primary_client, fallback_client)
-    return {**pipeline_state, **intent_update}
-
-
-@pytest.mark.asyncio
-async def test_legitimate_debug_request() -> None:
-    """Allow a standard debugging request with a code snippet."""
-    result = await run_pipeline(
-        {"user_query": "Why does this function raise an IndexError?", "code": "items[4]"},
-        MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
+def _decision(
+    is_safe: bool = True,
+    reason: InboundTriggerReason | None = None,
+    redirect: str | None = None,
+) -> InboundIntentJudgeOutput:
+    """Build a canned inbound intent decision."""
+    return InboundIntentJudgeOutput(
+        is_safe_intent=is_safe,
+        inbound_trigger_reason=reason,
+        constructive_redirect=redirect,
     )
 
-    assert result["is_safe_sensitive"] is True
-    assert result["is_safe_intent"] is True
+
+@pytest.mark.asyncio
+async def test_secret_guardrail_redacts_api_key() -> None:
+    """Redact a hardcoded API key from the prompt."""
+    query = 'set OPENAI_API_KEY="sk-abcdefghijklmnopqrstuvwx"'  # pragma: allowlist secret
+    result: Any = await secret_guardrail_node(_state_with_query(query))
+
+    assert "messages" in result
+    redacted = result["messages"][0].content
+    assert "sk-abcdefghijklmnopqrstuvwx" not in redacted  # pragma: allowlist secret
+    assert "[REDACTED_OPENAI_KEY]" in redacted
 
 
 @pytest.mark.asyncio
-async def test_dlp_commented_text_does_not_trigger() -> None:
+async def test_secret_guardrail_leaves_placeholder_alone() -> None:
     """Ignore credential-like text in Python comment lines."""
-    result = await run_pipeline(
-        {"user_query": "Can you review this code?", "code": '    # api_key = "placeholder"\nprint("safe")'},
-        MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
+    query = '    # api_key = "placeholder"\nprint("safe")'  # pragma: allowlist secret
+    result: Any = await secret_guardrail_node(_state_with_query(query))
 
-    assert result["is_safe_sensitive"] is True
+    assert result == {}
 
 
 @pytest.mark.asyncio
-async def test_dlp_python_identifiers_do_not_trigger_entropy() -> None:
+async def test_secret_guardrail_ignores_python_identifiers() -> None:
     """Allow long Python identifiers that are not secrets."""
-    result = await run_pipeline(
-        {
-            "user_query": "Can you review this code?",
-            "code": "def process_financial_ledger(file_path: str):\n    return file_path\n",
-        },
-        MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
+    query = "def process_financial_ledger(file_path: str):\n    return file_path\n"
+    result: Any = await secret_guardrail_node(_state_with_query(query))
 
-    assert result["is_safe_sensitive"] is True
+    assert result == {}
 
 
 @pytest.mark.asyncio
-async def test_dlp_blocks_and_redacts_api_key() -> None:
-    """Block and redact a real hardcoded API key."""
-    result = await run_pipeline(
-        {"user_query": "Can you review this configuration?", "code": 'api_key = "sk-abcdefghijklmnopqrstuvwx"'},
-        MockSuccessJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
+async def test_secret_guardrail_redacts_high_entropy_secret() -> None:
+    """Redact a 20+ char hex string exceeding the whitelist length cap."""
+    query = 'secret_key = "a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4"'  # pragma: allowlist secret
+    result: Any = await secret_guardrail_node(_state_with_query(query))
 
-    assert result["is_safe_sensitive"] is False
-    assert result["inbound_trigger_reason"] == InboundTriggerReason.SENSITIVE_DATA_EXPOSURE
-    assert result["sanitized_code"] == 'api_key = "[REDACTED_SECRET]"'
+    assert "messages" in result
+    assert "a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4" not in result["messages"][0].content  # pragma: allowlist secret
+
+
+@pytest.mark.asyncio
+async def test_intent_allows_debug_request() -> None:
+    """Allow a standard debugging request."""
+    with patch(
+        "app.core.langgraph.nodes.inbound_intent._invoke_intent_judge",
+        new=AsyncMock(return_value=_decision(is_safe=True)),
+    ):
+        result = await inbound_intent_node(_state_with_query("Why does this function raise an IndexError?"))
+
+    assert result.update["is_safe_intent"] is True
+    assert result.goto == "document_pipeline"
 
 
 @pytest.mark.asyncio
 async def test_intent_blocks_solution_extraction() -> None:
     """Block requests for a ready-to-submit solution."""
-    result = await run_pipeline(
-        {"user_query": "Give me a complete ready-to-paste solution for this assignment."},
-        MockBlockJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
+    with patch(
+        "app.core.langgraph.nodes.inbound_intent._invoke_intent_judge",
+        new=AsyncMock(
+            return_value=_decision(
+                is_safe=False,
+                reason=InboundTriggerReason.SOLUTION_EXTRACTION,
+                redirect="Share your current attempt and I can help you improve it.",
+            )
+        ),
+    ):
+        result = await inbound_intent_node(_state_with_query("Give me a complete ready-to-paste solution."))
 
-    assert result["is_safe_intent"] is False
-    assert result["inbound_trigger_reason"] == InboundTriggerReason.SOLUTION_EXTRACTION
-    assert result["constructive_redirect"]
+    assert result.update["is_safe_intent"] is False
+    assert result.update["inbound_trigger_reason"] == InboundTriggerReason.SOLUTION_EXTRACTION
+    assert result.update["constructive_redirect"]
+    assert result.goto == "store_messages"
 
 
 @pytest.mark.asyncio
 async def test_intent_blocks_off_topic_query() -> None:
     """Block prompts outside the coding mentor's scope."""
-    result = await run_pipeline(
-        {"user_query": "Write an essay about ancient Roman architecture."},
-        MockOffTopicJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
+    with patch(
+        "app.core.langgraph.nodes.inbound_intent._invoke_intent_judge",
+        new=AsyncMock(
+            return_value=_decision(
+                is_safe=False,
+                reason=InboundTriggerReason.OFF_TOPIC,
+                redirect="Please keep your question focused on software engineering.",
+            )
+        ),
+    ):
+        result = await inbound_intent_node(_state_with_query("Write an essay about ancient Roman architecture."))
 
-    assert result["is_safe_intent"] is False
-    assert result["inbound_trigger_reason"] == InboundTriggerReason.OFF_TOPIC
-
-
-@pytest.mark.asyncio
-async def test_intent_uses_fallback_client_on_primary_failure() -> None:
-    """Allow the request when the fallback evaluator succeeds."""
-    result = await run_pipeline(
-        {"user_query": "Please explain this loop."},
-        MockFailingJudgeClient(),
-        MockSuccessJudgeClient(),
-    )
-
-    assert result["is_safe_intent"] is True
+    assert result.update["is_safe_intent"] is False
+    assert result.update["inbound_trigger_reason"] == InboundTriggerReason.OFF_TOPIC
 
 
 @pytest.mark.asyncio
-async def test_intent_fails_closed_when_both_clients_fail() -> None:
-    """Block the request when neither intent evaluator is available."""
-    result = await run_pipeline(
-        {"user_query": "Please explain this loop."},
-        MockFailingJudgeClient(),
-        MockFailingJudgeClient(),
-    )
+async def test_intent_fails_closed_on_client_failure() -> None:
+    """Block the request when the intent evaluator fails."""
+    with patch(
+        "app.core.langgraph.nodes.inbound_intent._invoke_intent_judge",
+        new=AsyncMock(side_effect=RuntimeError("intent judge unavailable")),
+    ):
+        result = await inbound_intent_node(_state_with_query("Please explain this loop."))
 
-    assert result["is_safe_intent"] is False
-    assert result["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
+    assert result.update["is_safe_intent"] is False
+    assert result.update["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR
+    assert result.goto == "store_messages"
+
+
+@pytest.mark.asyncio
+async def test_intent_fails_closed_on_client_timeout() -> None:
+    """Block the request when the intent evaluator times out."""
+    with patch(
+        "app.core.langgraph.nodes.inbound_intent._invoke_intent_judge",
+        new=AsyncMock(side_effect=asyncio.TimeoutError("intent judge timed out")),
+    ):
+        result = await inbound_intent_node(_state_with_query("Please explain this loop."))
+
+    assert result.update["is_safe_intent"] is False
+    assert result.update["inbound_trigger_reason"] == InboundTriggerReason.EVALUATOR_ERROR

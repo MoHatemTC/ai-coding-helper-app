@@ -1,0 +1,94 @@
+<footer class="composer">
+  <div class="composer-box">
+    @if (files().length) {
+      <div class="file-preview">
+        @for (file of files(); track $index) {
+          <div class="file-chip">
+            <mat-icon>insert_drive_file</mat-icon>
+            <span class="file-name">{{ file.name }}</span>
+            <button
+              mat-icon-button
+              class="remove-file"
+              aria-label="Remove file"
+              (click)="removeFile($index)"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+    }
+
+    <div class="composer-tools">
+      <div class="agent-toggle" role="group" aria-label="Agent mode">
+        <button
+          type="button"
+          class="agent-toggle-option"
+          [class.active]="agentMode() === 'reasoning'"
+          [disabled]="busy()"
+          (click)="setAgentMode('reasoning')"
+        >
+          Reasoning
+        </button>
+        <button
+          type="button"
+          class="agent-toggle-option"
+          [class.active]="agentMode() === 'fast'"
+          [disabled]="busy()"
+          (click)="setAgentMode('fast')"
+        >
+          Fast
+        </button>
+      </div>
+    </div>
+
+    <div class="composer-row">
+      <button
+        mat-icon-button
+        class="attach-btn"
+        matTooltip="Attach a file"
+        aria-label="Attach a file"
+        (click)="pickFiles()"
+      >
+        <mat-icon>attach_file</mat-icon>
+      </button>
+
+      <textarea
+        #inputEl
+        class="composer-input"
+        rows="1"
+        placeholder="Ask about your code, or attach a file&hellip;"
+        [ngModel]="input()"
+        (ngModelChange)="onModelChange($event)"
+        (keydown)="onKeydown($event)"
+      ></textarea>
+
+      @if (busy()) {
+        <button
+          mat-icon-button
+          class="stop-btn"
+          matTooltip="Stop generating"
+          aria-label="Stop generating"
+          (click)="stop()"
+        >
+          <mat-icon>stop_circle</mat-icon>
+        </button>
+      } @else {
+        <button
+          mat-fab
+          class="send-btn"
+          color="primary"
+          aria-label="Send message"
+          [disabled]="!canSend()"
+          (click)="send()"
+        >
+          <mat-icon>arrow_upward</mat-icon>
+        </button>
+      }
+    </div>
+
+    <div class="composer-hint">Enter to send &middot; Shift+Enter for a new line</div>
+  </div>
+
+  <input #fileInput type="file" multiple hidden (change)="onFileSelected($event)" />
+</footer>

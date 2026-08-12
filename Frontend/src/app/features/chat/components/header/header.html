@@ -1,0 +1,41 @@
+<header class="header">
+  <div class="header-left">
+    <button mat-icon-button aria-label="Open menu" (click)="openSidebar()">
+      <mat-icon>menu</mat-icon>
+    </button>
+    <span class="header-brand">
+      <mat-icon>cloud</mat-icon>
+    </span>
+    <button class="title-btn" aria-label="Open chat list" (click)="openSidebar()">
+      <span class="title">{{ title() }}</span>
+      <mat-icon class="title-caret">expand_more</mat-icon>
+    </button>
+  </div>
+
+  <div class="header-right">
+    <mat-button-toggle-group
+      class="mode-toggle"
+      hideSingleSelectionIndicator
+      [value]="mode()"
+      (valueChange)="setMode($event)"
+      aria-label="Response mode"
+    >
+      <mat-button-toggle value="normal">
+        <mat-icon matTooltip="Get the full answer after processing">task_alt</mat-icon>
+      </mat-button-toggle>
+      <mat-button-toggle value="stream">
+        <mat-icon matTooltip="Stream the answer token by token">stream</mat-icon>
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <button
+      mat-icon-button
+      class="clear-btn"
+      aria-label="Clear conversation"
+      matTooltip="Clear conversation"
+      (click)="clearChat()"
+    >
+      <mat-icon>delete_sweep</mat-icon>
+    </button>
+  </div>
+</header>

@@ -1,56 +1,52 @@
 """This file contains the graph schema for the application."""
 
-import operator
-from typing import Annotated, Any, TypedDict
+from typing import Annotated
 
-from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
-from app.schemas.review import InboundTriggerReason, OutboundTriggerReason
+from app.schemas.document import FileAttachment
 
 
-class GraphState(TypedDict, total=False):
-    """State definition for the LangGraph Agent/Workflow.
+class GraphState(BaseModel):
+    """State definition for the LangGraph Agent/Workflow."""
 
-    A TypedDict (not a Pydantic BaseModel) so every node -- guardrails,
-    review lanes, hints, chat, outbound -- can read/write it via plain dict
-    access (`state.get(...)`, `state["..."]`), which is how all of the
-    existing node implementations were already written. `total=False` means
-    every key is optional: a fresh turn only has the keys `_build_graph_input`
-    populates, and each node fills in more as the turn progresses. See
-    docs/graph_state_contract.md for the full per-node contract.
-    """
+    messages: Annotated[list, add_messages] = Field(
+        default_factory=list, description="The messages in the conversation"
+    )
+    long_term_memory: str = Field(default="", description="The long term memory of the conversation")
 
-    # Conversation
-    messages: Annotated[list[AnyMessage], add_messages]
-    long_term_memory: str
-    skill_profile: str
+    summary: str = Field(default="", description="The summary of the conversation so far")
+    last_message_index: int = Field(default=0, description="Index of the last message processed by summarization node")
+    skill_profile: str = Field(default="", description="The user's skill profile markdown")
 
-    # This turn's submission
-    code: str | None
-    language: str | None
-    user_query: str
-    problem_id: str | None
+    pending_files: list[FileAttachment] = Field(
+        default_factory=list,
+        description="Files uploaded but not yet processed by the document pipeline node",
+    )
 
-    # Inbound guardrail (Stage 1: DLP, Stage 2: Intent)
-    is_safe_sensitive: bool
-    detected_secret_types: list[str]
-    sanitized_query: str
-    sanitized_code: str | None
-    is_safe_intent: bool
-    inbound_trigger_reason: InboundTriggerReason | None
-    constructive_redirect: str | None
+    uploaded_files: list[FileAttachment] = Field(
+        default_factory=list,
+        description="File metadata for the current turn, consumed by store_messages",
+    )
 
-    # Parallel review lanes -- appended to, never overwritten, so
-    # correctness/security/performance can run concurrently.
-    findings: Annotated[list[dict[str, Any]], operator.add]
+    code_context: str = Field(
+        default="",
+        description="Retrieved code chunks from pgvector, injected into the hint prompt",
+    )
 
-    # Hint escalation
-    hint_state: dict[str, Any] | None
-    latest_hint: dict[str, Any] | None
-
-    # Chat + outbound guardrail
-    draft_response: str
-    is_safe_output: bool
-    outbound_trigger_reason: OutboundTriggerReason | None
-    final_response: str
+    # Guardrail fields
+    is_safe_intent: bool = Field(default=True)
+    is_safe_output: bool = Field(default=True)
+    draft_response: str = Field(default="", description="Raw agent output — never stored")
+    final_response: str = Field(default="", description="Approved response that gets stored and returned")
+    inbound_trigger_reason: str | None = Field(default=None)
+    outbound_trigger_reason: str | None = Field(default=None)
+    constructive_redirect: str | None = Field(default=None)
+    outbound_attempts: int = Field(
+        default=0,
+        description="Agent drafts produced for the current turn; bounds the outbound regenerate loop",
+    )

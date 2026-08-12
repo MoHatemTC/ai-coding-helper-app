@@ -144,22 +144,122 @@ class Settings:
         self.LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
         self.LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
         self.LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+        self.LANGFUSE_DEBUG = os.getenv("LANGFUSE_DEBUG", "false").lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
+        self.LANGFUSE_TIMEOUT = int(os.getenv("LANGFUSE_TIMEOUT", "10"))
 
         # LangGraph Configuration
         self.LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
         self.LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "https://learner-os.sprints.ai/litellm")
-        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "fw-kimi-k2.6")
-        self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "fw-kimi-k2.6")
+        self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "gemini/gemini-3.6-flash")
+        self.HINT_LLM_MODEL = os.getenv("HINT_LLM_MODEL", "gemini/gemini-3.6-flash")
+        self.LITE_LLM_MODEL = os.getenv("LITE_LLM_MODEL", "gemini/gemini-3.5-flash-lite")
         self.SESSION_NAMING_ENABLED = os.getenv("SESSION_NAMING_ENABLED", "true").lower() == "true"
+        self.SESSION_NAMING_MODEL = os.getenv("SESSION_NAMING_MODEL", self.LITE_LLM_MODEL)
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "2000"))
-        self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "3"))
+        self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "5"))
         self.LLM_TOTAL_TIMEOUT = int(os.getenv("LLM_TOTAL_TIMEOUT", "60"))
+        self.MODEL_MAX_CONTEXT_WINDOW = int(os.getenv("MODEL_MAX_CONTEXT_WINDOW", "250000"))
+
+        # Simulated streaming replay (guardrail-gated stream endpoint)
+        self.STREAM_REPLAY_CHUNK_DELAY_MS = int(os.getenv("STREAM_REPLAY_CHUNK_DELAY_MS", "70"))
+        self.STREAM_REPLAY_MAX_DURATION_MS = int(os.getenv("STREAM_REPLAY_MAX_DURATION_MS", "5000"))
 
         # Long term memory Configuration
-        self.LONG_TERM_MEMORY_MODEL = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
-        self.LONG_TERM_MEMORY_EMBEDDER_MODEL = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
+        self.MEMORY_LLM_MODEL = os.getenv("MEMORY_LLM_MODEL", self.LITE_LLM_MODEL)
         self.LONG_TERM_MEMORY_COLLECTION_NAME = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
+        self.MEMORY_CONSOLIDATION_THRESHOLD = int(os.getenv("MEMORY_CONSOLIDATION_THRESHOLD", "1000"))
+        self.MEMORY_CONSOLIDATION_TARGET = int(os.getenv("MEMORY_CONSOLIDATION_TARGET", "100"))
+
+        # Skill Profile Configuration
+        self.SKILL_PROFILE_SILENCE_SECONDS = int(os.getenv("SKILL_PROFILE_SILENCE_SECONDS", "1800"))
+        self.SKILL_PROFILE_MODEL = os.getenv("SKILL_PROFILE_MODEL", self.LITE_LLM_MODEL)
+        self.SKILL_PROFILE_MAX_TOKENS = int(os.getenv("SKILL_PROFILE_MAX_TOKENS", "2048"))
+
+        # Document Pipeline Configuration
+        self.UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+        self.MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", str(10 * 1024 * 1024)))  # 10MB default
+        self.MAX_FILES_PER_REQUEST = int(os.getenv("MAX_FILES_PER_REQUEST", "10"))
+        self.ALLOWED_EXTENSIONS = parse_list_from_env(
+            "ALLOWED_EXTENSIONS",
+            [
+                ".py",
+                ".cpp",
+                ".cxx",
+                ".hpp",
+                ".h",
+                ".c",
+                ".cs",
+                ".js",
+                ".ts",
+                ".tsx",
+                ".jsx",
+                ".java",
+                ".go",
+                ".rs",
+                ".rb",
+                ".php",
+                ".swift",
+                ".kt",
+                ".scala",
+                ".r",
+                ".sql",
+                ".sh",
+                ".bash",
+                ".yaml",
+                ".yml",
+                ".json",
+                ".xml",
+                ".md",
+                ".html",
+                ".css",
+                ".scss",
+                ".less",
+                ".vue",
+                ".svelte",
+                ".lua",
+                ".pl",
+                ".pm",
+                ".hs",
+                ".erl",
+                ".ex",
+                ".exs",
+                ".clj",
+                ".cljs",
+                ".edn",
+                ".zig",
+                ".nim",
+                ".dart",
+            ],
+        )
+        # GitHub repo ingestion configuration (cloned transiently for chunking)
+        self.REPO_CLONE_TIMEOUT_SECONDS = int(os.getenv("REPO_CLONE_TIMEOUT_SECONDS", "120"))
+        self.REPO_MAX_FILES = int(os.getenv("REPO_MAX_FILES", "500"))
+        self.REPO_MAX_TOTAL_BYTES = int(os.getenv("REPO_MAX_TOTAL_BYTES", str(100 * 1024 * 1024)))  # 100MB default
+        self.TOP_K_RETRIEVAL = int(os.getenv("TOP_K_RETRIEVAL", "5"))
+        # Cosine-distance cutoff (pgvector <=>). Chunks farther than this are
+        # not returned, so retrieval returns only relevant results instead of a
+        # fixed top-k that may include unrelated chunks.
+        self.CHUNK_SIMILARITY_THRESHOLD = float(os.getenv("CHUNK_SIMILARITY_THRESHOLD", "0.75"))
+        self.EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2")
+        self.EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))
+        # Use the standalone mcp_server's tools (web_search, search_code,
+        # memory_search) inside the ReAct agent, with user/session scope forced
+        # by the backend rather than chosen by the model.
+        self.MCP_AGENT_TOOLS_ENABLED = os.getenv("MCP_AGENT_TOOLS_ENABLED", "false").lower() in (
+            "true",
+            "1",
+            "t",
+            "yes",
+        )
+        self.MCP_AGENT_TOOLS = parse_list_from_env("MCP_AGENT_TOOLS", ["web_search", "search_code", "memory_search"])
+        self.POSTGRES_CONNECT_TIMEOUT = int(os.getenv("POSTGRES_CONNECT_TIMEOUT", "5"))
+
         # JWT Configuration
         self.JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
         self.JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -183,6 +283,8 @@ class Settings:
         self.POSTGRES_POOL_SIZE = int(os.getenv("POSTGRES_POOL_SIZE", "20"))
         self.POSTGRES_MAX_OVERFLOW = int(os.getenv("POSTGRES_MAX_OVERFLOW", "10"))
         self.CHECKPOINT_TABLES = ["checkpoint_blobs", "checkpoint_writes", "checkpoints"]
+        self.CHECKPOINT_TTL_DAYS = int(os.getenv("CHECKPOINT_TTL_DAYS", "30"))
+        self.STATE_CACHE_TTL_SECONDS = int(os.getenv("STATE_CACHE_TTL_SECONDS", "300"))
 
         # Valkey/Redis Cache Configuration (optional — if host is set, caching is enabled)
         self.VALKEY_HOST = os.getenv("VALKEY_HOST", "")
@@ -191,6 +293,7 @@ class Settings:
         self.VALKEY_PASSWORD = os.getenv("VALKEY_PASSWORD", "")
         self.VALKEY_MAX_CONNECTIONS = int(os.getenv("VALKEY_MAX_CONNECTIONS", "20"))
         self.CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "60"))
+        self.CACHE_MAX_ENTRIES = int(os.getenv("CACHE_MAX_ENTRIES", "1000"))
 
         # Rate Limiting Configuration
         self.RATE_LIMIT_DEFAULT = parse_list_from_env("RATE_LIMIT_DEFAULT", ["200 per day", "50 per hour"])
@@ -204,6 +307,7 @@ class Settings:
             "login": ["20 per minute"],
             "root": ["10 per minute"],
             "health": ["20 per minute"],
+            "uploads": ["30 per minute"],
         }
 
         # Update rate limit endpoints from environment variables
@@ -215,7 +319,7 @@ class Settings:
                 self.RATE_LIMIT_ENDPOINTS[endpoint] = value
 
         # Evaluation Configuration
-        self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", "gpt-5")
+        self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", self.DEFAULT_LLM_MODEL)
         self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", self.LITELLM_BASE_URL)
         self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.LITELLM_API_KEY)
         self.EVALUATION_SLEEP_TIME = int(os.getenv("EVALUATION_SLEEP_TIME", "10"))

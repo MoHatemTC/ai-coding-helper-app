@@ -59,7 +59,7 @@ CODE_DUPLICATION_CODE = """def get_active_users(users):
         if u.is_active and u.email_verified and not u.is_banned:
             result.append(u)
     return result
- 
+
 def get_active_admins(users):
     result = []
     for u in users:

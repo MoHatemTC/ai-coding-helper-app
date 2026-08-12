@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 from enum import Enum
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -181,25 +181,6 @@ async def run_performance_review(code: str, language: Optional[str] = None) -> L
         response_format=PerformanceReviewDraft,
     )
     return [_draft_to_finding(draft) for draft in result.findings]
-
-
-async def performance_review_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Graph-node wrapper around run_performance_review.
-
-    Reads: sanitized_code (falls back to code), language
-    Writes: findings (appended via the shared operator.add reducer -- safe
-        to run concurrently with correctness_node and security_review_node)
-    """
-    raw_code = state.get("sanitized_code") or state.get("code")
-    code = raw_code if isinstance(raw_code, str) and raw_code.strip() else None
-    if code is None:
-        return {"findings": []}
-
-    raw_language = state.get("language")
-    language = raw_language if isinstance(raw_language, str) and raw_language else None
-
-    findings = await run_performance_review(code, language=language)
-    return {"findings": [finding.model_dump() for finding in findings]}
 
 
 # ---------------------------------------------------------------------------

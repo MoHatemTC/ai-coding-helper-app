@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 from unittest.mock import AsyncMock
+from uuid import uuid4
+
+from app.models.session import Session as ChatSession
 
 import pytest
+from sqlmodel import SQLModel, Session, create_engine
 
+from app.models.user import User
 from app.services.memory import MemoryService
 
 
@@ -132,3 +137,56 @@ def memory_service(
 def sample_messages() -> list[dict[str, Any]]:
     """Return a list of sample messages."""
     return list(SAMPLE_MESSAGES)
+
+
+# ---------------------------------------------------------------------------
+# SQLite in-memory database fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="function")
+def db_engine():
+    """Create a fresh SQLite in-memory engine per test."""
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    SQLModel.metadata.create_all(engine)
+    yield engine
+    SQLModel.metadata.drop_all(engine)
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
+def db_session(db_engine):
+    """Provide a transactional DB session that rolls back after each test."""
+    with Session(db_engine) as session:
+        yield session
+
+
+@pytest.fixture
+def test_user(db_session: Session) -> User:
+    """Create a test user in the database."""
+    user = User(
+        id=1,
+        email="test",
+        hashed_password="",
+        username="testuser",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+def test_session(db_session: Session, test_user: User) -> ChatSession:
+    """Create a test session in the database."""
+    session_id = str(uuid4())
+    chat_session = ChatSession(
+        id=session_id,
+        user_id=test_user.id,
+        name="Test Session",
+        username=test_user.username,
+    )
+    db_session.add(chat_session)
+    db_session.commit()
+    db_session.refresh(chat_session)
+    return chat_session

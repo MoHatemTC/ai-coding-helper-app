@@ -1,0 +1,24 @@
+<mat-sidenav-container class="chat-shell">
+  <mat-sidenav
+    mode="over"
+    position="start"
+    [opened]="sidebarOpen()"
+    (closedStart)="ui.closeSidebar()"
+    class="app-sidebar-nav"
+  >
+    <app-sidebar />
+  </mat-sidenav>
+
+  <mat-sidenav-content class="chat-content">
+    @if (activeSession(); as session) {
+      <app-chat-header [sessionId]="session.session_id" />
+      <app-message-list />
+      <app-composer />
+    } @else {
+      <div class="loading-state">
+        <mat-spinner diameter="32" />
+        <p>Setting up your session&hellip;</p>
+      </div>
+    }
+  </mat-sidenav-content>
+</mat-sidenav-container>

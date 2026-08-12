@@ -33,7 +33,7 @@ from app.schemas.auth import (
     UserCreate,
     UserResponse,
 )
-from app.services.database import DatabaseService
+from app.services.database import database_service
 from app.utils.auth import (
     create_access_token,
     verify_token,
@@ -46,7 +46,7 @@ from app.utils.sanitization import (
 
 router = APIRouter()
 security = HTTPBearer()
-db_service = DatabaseService()
+db_service = database_service
 
 
 async def get_current_user(
@@ -94,8 +94,8 @@ async def get_current_user(
     except ValueError as ve:
         logger.exception("token_validation_failed", error=str(ve))
         raise HTTPException(
-            status_code=422,
-            detail="Invalid token format",
+            status_code=401,
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -147,8 +147,8 @@ async def get_current_session(
     except ValueError as ve:
         logger.exception("token_validation_failed", error=str(ve))
         raise HTTPException(
-            status_code=422,
-            detail="Invalid token format",
+            status_code=401,
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

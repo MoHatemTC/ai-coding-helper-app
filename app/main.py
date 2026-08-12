@@ -1,7 +1,14 @@
 """This file contains the main application entry point."""
 
+import asyncio
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
+
+# Windows: psycopg's async connection pool requires the selector loop policy,
+# not the default ProactorEventLoop — otherwise pool acquisition hangs.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from dotenv import load_dotenv
 from fastapi import (
@@ -18,7 +25,7 @@ from slowapi.errors import RateLimitExceeded
 from asgi_correlation_id import CorrelationIdMiddleware
 
 from app.api.v1.api import api_router
-from app.api.v1.chatbot import agent
+from app.api.v1.chatbot import agent, close_agents
 from app.core.cache import cache_service
 from app.core.config import settings
 from app.core.limiter import limiter
@@ -29,9 +36,12 @@ from app.core.middleware import (
     MetricsMiddleware,
     ProfilingMiddleware,
 )
-from app.core.observability import langfuse_init
+from app.core.observability import langfuse_flush, langfuse_init
 from app.services.database import database_service
 from app.services.memory import memory_service
+from app.services.checkpoint_cleanup import run_checkpoint_cleanup
+from app.services.skill_profile import skill_profile_service
+from app.services.vector_store import warmup_embedder
 
 # Load environment variables
 load_dotenv()
@@ -54,6 +64,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("cache_initialization_failed", error=str(e))
 
+    # Pre-warm the shared MCP tool connection (spawns the standalone MCP
+    # subprocess once) before the graph is built so tool calls don't pay a
+    # cold subprocess start on the first request.
+    try:
+        await agent.start_mcp()
+    except Exception as e:
+        logger.exception("mcp_tools_pre_warm_failed", error=str(e))
+
     # Pre-warm the LangGraph agent: create graph + connection pool at startup
     # to avoid cold-start latency on the first request
     try:
@@ -69,13 +87,33 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.exception("memory_service_pre_warm_failed", error=str(e))
 
+    # Pre-warm the SentenceTransformer embedding model in a worker thread so the
+    # first code search / upload doesn't pay cold-start latency or race to load.
+    try:
+        await asyncio.to_thread(warmup_embedder)
+        logger.info("embedding_model_pre_warmed")
+    except Exception as e:
+        logger.exception("embedding_model_pre_warm_failed", error=str(e))
+
+    # Start checkpoint cleanup background task
+    checkpoint_cleanup_task = asyncio.create_task(run_checkpoint_cleanup())
+    logger.info("checkpoint_cleanup_started", ttl_days=settings.CHECKPOINT_TTL_DAYS)
+
     yield
 
     # Cleanup on shutdown
+    checkpoint_cleanup_task.cancel()
+    await skill_profile_service.shutdown()
     await cache_service.close()
-    if agent._connection_pool:
-        await agent._connection_pool.close()
-        logger.info("connection_pool_closed")
+    await agent.stop_mcp()
+    await close_agents()
+    logger.info("agent_resources_closed")
+    try:
+        await asyncio.to_thread(database_service.engine.dispose)
+        logger.info("database_engine_disposed")
+    except Exception as e:
+        logger.exception("database_engine_dispose_failed", error=str(e))
+    langfuse_flush()
     logger.info("application_shutdown")
 
 

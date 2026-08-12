@@ -4,8 +4,10 @@ from typing import (
     Any,
     Dict,
     List,
+    Tuple,
 )
 
+from dotenv import load_dotenv
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
@@ -13,9 +15,7 @@ from pydantic import SecretStr
 from app.core.config import settings
 from app.core.logging import logger
 
-_TOKEN_LIMIT: Dict[str, Any] = {"max_completion_tokens": settings.MAX_TOKENS}
-_API_KEY = SecretStr(settings.LITELLM_API_KEY)
-_BASE_URL = settings.LITELLM_BASE_URL
+load_dotenv()
 
 
 class LLMRegistry:
@@ -25,46 +25,44 @@ class LLMRegistry:
     methods to retrieve them by name with optional argument overrides.
     """
 
-    # NOTE (22 Jul): entry "name" is a stable lookup key referenced elsewhere
-    # (settings.DEFAULT_LLM_MODEL == "fw-kimi-k2.6"); it intentionally no
-    # longer matches its own "model" string below -- see the 22 Jul comment
-    # on that entry. Do not rename "fw-kimi-k2.6" without also updating
-    # DEFAULT_LLM_MODEL in app/core/config.py.
-    #
-    # A third entry (name="kimi-k2.5", model="kimi-k2.5") was removed here:
-    # it was a byte-for-byte duplicate of the entry below once "fw-kimi-k2.6"
-    # was repointed at the same underlying "kimi-k2.5" model, so it added a
-    # fallback *slot* without adding a fallback *model* -- the circular
-    # fallback loop would have retried the same already-failed model twice.
     LLMS: List[Dict[str, Any]] = [
         {
-            "name": "fw-kimi-k2.6",
+            "name": settings.DEFAULT_LLM_MODEL,
             "llm": ChatOpenAI(
-                model="kimi-k2.5",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                temperature=settings.DEFAULT_LLM_TEMPERATURE,
-                model_kwargs={"max_completion_tokens": 6000},
-                use_responses_api=False,
+                model=settings.DEFAULT_LLM_MODEL,
+                base_url=settings.LITELLM_BASE_URL,
+                api_key=SecretStr(settings.LITELLM_API_KEY),
             ),
+            "llm_class": ChatOpenAI,
+            "constructor_kwargs": {
+                "base_url": settings.LITELLM_BASE_URL,
+                "api_key": settings.LITELLM_API_KEY,
+            },
         },
         {
-            "name": "kimi-k2.6",
+            "name": settings.LITE_LLM_MODEL,
             "llm": ChatOpenAI(
-                model="kimi-k2.6",
-                api_key=_API_KEY,
-                base_url=_BASE_URL,
-                model_kwargs=_TOKEN_LIMIT,
+                model=settings.LITE_LLM_MODEL,
+                base_url=settings.LITELLM_BASE_URL,
+                api_key=SecretStr(settings.LITELLM_API_KEY),
             ),
+            "llm_class": ChatOpenAI,
+            "constructor_kwargs": {
+                "base_url": settings.LITELLM_BASE_URL,
+                "api_key": settings.LITELLM_API_KEY,
+            },
         },
     ]
+
+    _VARIANT_CACHE: Dict[Tuple[str, Tuple[Tuple[str, Any], ...]], BaseChatModel] = {}
 
     @classmethod
     def get(cls, model_name: str, **kwargs) -> BaseChatModel:
         """Get an LLM by name with optional argument overrides.
 
-        When kwargs are provided a fresh ChatOpenAI instance is returned with
-        those overrides applied, leaving the shared registry entry untouched.
+        When kwargs are provided a fresh instance of the correct LLM class
+        is returned with those overrides applied, leaving the shared registry
+        entry untouched.
 
         Args:
             model_name: Name of the model to retrieve.
@@ -83,8 +81,26 @@ class LLMRegistry:
             raise ValueError(f"model '{model_name}' not found in registry. available models: {available}")
 
         if kwargs:
-            logger.debug("creating_llm_with_custom_args", model_name=model_name, custom_args=list(kwargs.keys()))
-            return ChatOpenAI(model=model_name, api_key=_API_KEY, **kwargs)
+            try:
+                cache_key = (model_name, tuple(sorted(kwargs.items())))
+            except TypeError:
+                cache_key = None
+            if cache_key is not None and cache_key in cls._VARIANT_CACHE:
+                logger.debug("using_cached_llm_variant", model_name=model_name)
+                return cls._VARIANT_CACHE[cache_key]
+
+            llm_class = model_entry["llm_class"]
+            extra = model_entry.get("constructor_kwargs", {})
+            logger.debug(
+                "creating_llm_with_custom_args",
+                model_name=model_name,
+                llm_class=llm_class.__name__,
+                custom_args=list(kwargs.keys()),
+            )
+            instance = llm_class(model=model_name, **extra, **kwargs)
+            if cache_key is not None:
+                cls._VARIANT_CACHE[cache_key] = instance
+            return instance
 
         logger.debug("using_default_llm_instance", model_name=model_name)
         return model_entry["llm"]
