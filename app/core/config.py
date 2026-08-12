@@ -319,7 +319,7 @@ class Settings:
                 self.RATE_LIMIT_ENDPOINTS[endpoint] = value
 
         # Evaluation Configuration
-        self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", "gpt-5")
+        self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", self.DEFAULT_LLM_MODEL)
         self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", self.LITELLM_BASE_URL)
         self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.LITELLM_API_KEY)
         self.EVALUATION_SLEEP_TIME = int(os.getenv("EVALUATION_SLEEP_TIME", "10"))
