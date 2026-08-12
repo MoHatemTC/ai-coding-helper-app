@@ -130,6 +130,54 @@
   }
 }
 
+.agent-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 10px;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--app-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+
+  mat-icon {
+    font-size: 17px;
+    width: 17px;
+    height: 17px;
+    color: var(--app-brand-blue);
+  }
+
+  &.active {
+    color: var(--app-text);
+  }
+}
+
+.activity-dots {
+  display: flex;
+  gap: 3px;
+
+  span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--app-text-muted);
+    animation: typing-bounce 1.2s infinite ease-in-out;
+
+    &:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+  }
+}
+
 .bubble-signature {
   display: inline-flex;
   align-items: center;

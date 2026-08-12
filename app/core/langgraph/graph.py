@@ -45,6 +45,7 @@ from app.core.config import (
     Environment,
     settings,
 )
+from app.core.langgraph.agent_status import attach_callbacks
 from app.core.langgraph.nodes.document_pipeline import document_pipeline_node
 from app.core.langgraph.nodes.hints import generate_hint_node
 from app.core.langgraph.nodes.inbound_first_stage import secret_guardrail_node
@@ -423,10 +424,13 @@ class LangGraphAgent:
         user_id: Optional[str] = None,
         username: Optional[str] = None,
         pending_files: Optional[list] = None,
+        callbacks: Optional[list[BaseCallbackHandler]] = None,
     ) -> list[Message]:
         """Get non-streamed assistant hint response."""
         graph = await self._get_graph()
         config = self._build_config(session_id, user_id, username)
+
+        attach_callbacks(config, callbacks or [])
 
         try:
             state = await self._get_cached_state(graph, config, session_id)

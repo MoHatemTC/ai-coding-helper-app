@@ -28,12 +28,29 @@
           <mat-icon>error_outline</mat-icon>
           <span>There was a problem generating this response.</span>
         </div>
-      } @else if (message().streaming && !message().content) {
-        <div class="typing">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
+      } @else if (message().streaming) {
+        @if (activities().length) {
+          <div class="agent-activity">
+            @if (currentActivity(); as activity) {
+              <div class="activity-row" [class.active]="!message().content">
+                <mat-icon>{{ activityView(activity).icon }}</mat-icon>
+                <span class="activity-label">{{ activityView(activity).label }}</span>
+                @if (!message().content) {
+                  <span class="activity-dots"><span></span><span></span><span></span></span>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="typing">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        }
+        @if (message().content) {
+          <markdown [data]="message().content" class="markdown-body" />
+        }
       } @else {
         <markdown [data]="message().content" class="markdown-body" />
       }

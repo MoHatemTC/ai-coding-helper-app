@@ -63,7 +63,17 @@ export interface PaginatedChatResponse extends BaseResponse {
   next_cursor: string | null;
 }
 
+export type StreamEventType = 'status' | 'content' | 'error' | 'done';
+
+export interface AgentActivity {
+  status: string;
+  tool_name?: string | null;
+}
+
 export interface StreamEvent extends BaseResponse {
+  type: StreamEventType;
   content: string;
   done: boolean;
+  status?: string | null;
+  tool_name?: string | null;
 }

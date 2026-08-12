@@ -1,13 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
-import type { AgentMode, StreamEvent } from '../models/api';
+import type { AgentActivity, AgentMode, StreamEvent } from '../models/api';
 import { SessionService } from './session.service';
 
 export interface StreamOptions {
   signal?: AbortSignal;
   mode?: AgentMode;
   onChunk: (content: string) => void;
+  onStatus: (activity: AgentActivity) => void;
   onDone: () => void;
   onError: (message: string) => void;
 }
@@ -92,6 +93,11 @@ export class StreamService {
           try {
             event = JSON.parse(payload) as StreamEvent;
           } catch {
+            continue;
+          }
+
+          if (event.type === 'status') {
+            options.onStatus({ status: event.status ?? 'thinking', tool_name: event.tool_name });
             continue;
           }
 

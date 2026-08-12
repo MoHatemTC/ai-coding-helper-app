@@ -54,6 +54,7 @@ from app.core.langgraph.nodes.inbound_first_stage import secret_guardrail_node
 from app.core.langgraph.nodes.outbound import outbound_node
 from app.core.langgraph.nodes.store_messages import store_messages_node
 from app.core.langgraph.nodes.summarization import summarization_node
+from app.core.langgraph.agent_status import attach_callbacks
 from app.core.langgraph.mcp_tool_connection import MCPToolConnection
 from app.core.langgraph.tools.ask_human import ask_human
 from app.core.langgraph.tools.code_search import (
@@ -403,6 +404,7 @@ class ReActAgent:
         user_id: Optional[str] = None,
         username: Optional[str] = None,
         pending_files: Optional[list] = None,
+        callbacks: Optional[list[BaseCallbackHandler]] = None,
     ) -> list[Message]:
         """Get a response from the LLM.
 
@@ -414,6 +416,7 @@ class ReActAgent:
             code (Optional[str]): The code snippet submitted for review.
             language (Optional[str]): The programming language of the submitted code.
             pending_files (Optional[list]): FileAttachments uploaded but not yet processed.
+            callbacks (Optional[list]): Extra callback handlers to attach to the graph run.
 
         Returns:
             list[Message]: The assistant message for this turn.
@@ -422,6 +425,8 @@ class ReActAgent:
             graph, config, graph_input = await self._prepare_turn(
                 message, session_id, user_id, username, pending_files
             )
+
+            attach_callbacks(config, callbacks or [])
 
             response = await graph.ainvoke(graph_input, config=config)
 

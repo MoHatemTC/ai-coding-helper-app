@@ -4,6 +4,7 @@ This module provides endpoints for chat interactions, including regular chat,
 streaming chat, message history management, and chat history clearing.
 """
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from app.api.v1.auth import get_current_session
 from app.core.config import settings
 from app.core.langgraph.ReAct_agent_graph import ReActAgent
+from app.core.langgraph.agent_status import AgentStatusCallback
 from app.core.langgraph.graph import LangGraphAgent
 from app.core.limiter import limiter
 from app.core.logging import logger
@@ -228,37 +230,60 @@ async def chat_stream(
         async def event_generator():
             """Generate streaming events."""
             try:
+                status_queue: asyncio.Queue[tuple[str, str | None]] = asyncio.Queue()
+                status_callback = AgentStatusCallback(status_queue)
+
                 with llm_stream_duration_seconds.labels(model=settings.HINT_LLM_MODEL).time():
                     # Run the full turn non-streaming. The outbound guardrail and
                     # its regenerate loop run inside the graph, so the returned
-                    # text is already the final, safety-approved response. Nothing
-                    # is streamed to the client until this completes.
-                    messages = await agent.get_response(
-                        user_message,
-                        session.id,
-                        user_id=str(session.user_id),
-                        username=session.username,
-                        pending_files=pending_files,
+                    # text is already the final, safety-approved response. Live
+                    # activity statuses are emitted as the turn runs.
+                    task = asyncio.create_task(
+                        agent.get_response(
+                            user_message,
+                            session.id,
+                            user_id=str(session.user_id),
+                            username=session.username,
+                            pending_files=pending_files,
+                            callbacks=[status_callback],
+                        )
                     )
+
+                    final_text = ""
+                    while not task.done():
+                        try:
+                            status, tool_name = await asyncio.wait_for(status_queue.get(), timeout=0.25)
+                        except asyncio.TimeoutError:
+                            continue
+                        response = StreamResponse(type="status", status=status, tool_name=tool_name)
+                        yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
+
+                    while not status_queue.empty():
+                        status, tool_name = status_queue.get_nowait()
+                        response = StreamResponse(type="status", status=status, tool_name=tool_name)
+                        yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
+
+                    messages = await task
                     final_text = messages[-1].content if messages else ""
 
                 if not final_text:
-                    final_response = StreamResponse(content="", done=True)
+                    final_response = StreamResponse(type="done", content="", done=True)
                     yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
                     return
 
                 # Replay the approved response as a simulated stream so the UX
                 # still feels live even though every token passed the guardrail.
                 async for chunk in replay_response_chunks(final_text):
-                    response = StreamResponse(content=chunk, done=False)
+                    response = StreamResponse(type="content", content=chunk, done=False)
                     yield f"data: {json.dumps(response.model_dump(mode='json'))}\n\n"
 
-                final_response = StreamResponse(content="", done=True)
+                final_response = StreamResponse(type="done", content="", done=True)
                 yield f"data: {json.dumps(final_response.model_dump(mode='json'))}\n\n"
 
             except RuntimeError as e:
                 logger.warning("stream_chat_db_unavailable", session_id=session.id, error=str(e))
                 error_response = StreamResponse(
+                    type="error",
                     content="Database service is unavailable. Please ensure PostgreSQL is running and try again.",
                     done=True,
                 )
@@ -270,7 +295,7 @@ async def chat_stream(
                     session_id=session.id,
                     error=str(e),
                 )
-                error_response = StreamResponse(content=str(e), done=True)
+                error_response = StreamResponse(type="error", content=str(e), done=True)
                 yield f"data: {json.dumps(error_response.model_dump(mode='json'))}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")

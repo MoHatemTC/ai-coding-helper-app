@@ -99,12 +99,23 @@ class StreamResponse(BaseResponse):
     """Response model for streaming chat endpoint.
 
     Attributes:
+        type: The kind of stream event. ``status`` carries live agent activity,
+            ``content`` carries text chunks, ``error`` carries failures, and
+            ``done`` signals the end of the stream.
         content: The content of the current chunk.
         done: Whether the stream is complete.
+        status: User-facing agent activity code (only for ``type='status'``).
+        tool_name: The tool currently in use (only for ``type='status'`` with status ``using_tool``).
     """
 
+    type: Literal["status", "content", "error", "done"] = Field(
+        default="content",
+        description="The kind of stream event",
+    )
     content: str = Field(default="", description="The content of the current chunk")
     done: bool = Field(default=False, description="Whether the stream is complete")
+    status: str | None = Field(default=None, description="User-facing agent activity code")
+    tool_name: str | None = Field(default=None, description="The tool currently in use")
 
 
 class SessionTitle(BaseModel):

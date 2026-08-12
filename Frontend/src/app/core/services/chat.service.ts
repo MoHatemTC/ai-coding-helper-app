@@ -3,7 +3,14 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import type { AgentMode, ChatMessage, ChatResponse, FileAttachment, PaginatedChatResponse } from '../models/api';
+import type {
+  AgentActivity,
+  AgentMode,
+  ChatMessage,
+  ChatResponse,
+  FileAttachment,
+  PaginatedChatResponse,
+} from '../models/api';
 import { SessionService } from './session.service';
 import { StreamService } from './stream.service';
 
@@ -11,6 +18,7 @@ export interface ViewMessage extends ChatMessage {
   streaming?: boolean;
   error?: boolean;
   pending?: boolean;
+  activities?: AgentActivity[];
 }
 
 export type ChatMode = 'normal' | 'stream';
@@ -243,6 +251,18 @@ export class ChatService {
             return [...list.slice(0, -1), { ...last, content: last.content + content }];
           }
           return list;
+        });
+      },
+      onStatus: (activity) => {
+        this.messages.update((list) => {
+          const last = list[list.length - 1];
+          if (!last?.streaming) return list;
+          const activities = last.activities ?? [];
+          const prev = activities[activities.length - 1];
+          if (prev && prev.status === activity.status && prev.tool_name === activity.tool_name) {
+            return list;
+          }
+          return [...list.slice(0, -1), { ...last, activities: [...activities, activity] }];
         });
       },
       onDone: async () => {
